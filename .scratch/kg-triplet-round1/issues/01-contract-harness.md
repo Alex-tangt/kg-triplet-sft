@@ -8,13 +8,13 @@ asserts the contract's relation set stays byte-identical to the harness's frozen
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contract module exports the 20 relations, the triplet validator, and the prompt template;
+- [x] Contract module exports the 20 relations, the triplet validator, and the prompt template;
       unit tests pass on fixtures (valid/invalid triplets, empty array, hard negatives)
-- [ ] Target prompt string asserted character-for-character against the original prompt
-- [ ] Harness vendored unchanged; the offline run (`--no-embeddings --limit 50`) prints a
+- [x] Target prompt string asserted character-for-character against the original prompt
+- [x] Harness vendored unchanged; the offline run (`--no-embeddings --limit 50`) prints a
       composite in [0, 1] and exits 0
-- [ ] Drift test fails if the relation set diverges from the harness constants
-- [ ] Teacher prompt module skeleton defined separately from the target prompt (five elements,
+- [x] Drift test fails if the relation set diverges from the harness constants
+- [x] Teacher prompt module skeleton defined separately from the target prompt (five elements,
       fixed weight anchors, in-chunk grounding rule) per ADR-0001
