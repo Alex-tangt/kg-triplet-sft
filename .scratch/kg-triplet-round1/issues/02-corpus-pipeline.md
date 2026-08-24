@@ -7,10 +7,10 @@ and MinHash near-duplicate removal, producing ~5000 clean passages.
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each stage runs end-to-end on a tiny fixture and asserts its output invariants
-- [ ] Full run produces ~5000 passages with logged stats (source mix, length distribution)
-- [ ] No produced passage ends mid-sentence (fixture + full-run assertion)
-- [ ] MinHash dedup removes near-duplicates at the configured threshold; counts reported
-- [ ] Run is resumable and downloads via hf-mirror only
+- [x] Each stage runs end-to-end on a tiny fixture and asserts its output invariants
+- [x] Full run produces ~5000 passages with logged stats (source mix, length distribution)
+- [x] No produced passage ends mid-sentence (fixture + full-run assertion)
+- [x] MinHash dedup removes near-duplicates at the configured threshold; counts reported
+- [x] Run is resumable and downloads via hf-mirror only
