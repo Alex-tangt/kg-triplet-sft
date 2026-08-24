@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+.uv/
+outputs/
+dataset/data/
+data/
+models/
+*.gguf
+*.bin
+kaggle.json
+.env
+.DS_Store
