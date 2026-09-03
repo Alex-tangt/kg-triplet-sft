@@ -1,0 +1,16 @@
+{
+  "id": "idalextan/kg-tracer-infer2",
+  "title": "kg-tracer-infer2",
+  "code_file": "kg_tracer_infer2.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": ["idalextan/trace-dataset", "idalextan/trace-val-data", "idalextan/trace-config", "idalextan/kg-tracer-v4-adapter"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": ["qwen-lm/qwen-3/transformers/0.6b/1"]
+}

@@ -257,12 +257,20 @@ def infer() -> None:
         )
         inputs = tokenizer([text], return_tensors="pt").to("cuda")
         with torch.no_grad():
+            # GraphRAG labels run 5-6k tokens; keep decode cap generous. Greedy
+            # (do_sample=False) degenerates to repetition loops on long
+            # structured output (HF docs + Qwen3's own sampling default + infer2
+            # experiment); sampling with mild repetition penalty is documented
+            # for this case.
             gen = model.generate(
-                **inputs, max_new_tokens=4096, do_sample=False,
-                temperature=1.0, top_p=1.0,
+                **inputs, max_new_tokens=8192, do_sample=True,
+                temperature=0.7, top_p=0.95, repetition_penalty=1.15,
             )
         out_ids = gen[0][inputs["input_ids"].shape[1]:]
         raw = tokenizer.decode(out_ids, skip_special_tokens=True)
+        # keep the raw completion for post-hoc review alongside the parse
+        with open(os.path.join(WORK, f"raw_{p['id']}.txt"), "w", encoding="utf-8") as f:
+            f.write(raw)
         try:
             parsed = _parse_answer(raw)
         except Exception as e:  # noqa: BLE001
