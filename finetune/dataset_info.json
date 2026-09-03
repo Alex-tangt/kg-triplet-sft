@@ -1,0 +1,12 @@
+{
+  "graphrag_tracer": {
+    "file_name": "alpaca_train.jsonl",
+    "columns": {"prompt": "instruction", "query": "input", "response": "output"},
+    "formatting": "alpaca"
+  },
+  "graphrag_full": {
+    "file_name": "alpaca_full_train.jsonl",
+    "columns": {"prompt": "instruction", "query": "input", "response": "output"},
+    "formatting": "alpaca"
+  }
+}

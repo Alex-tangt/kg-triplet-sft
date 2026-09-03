@@ -1,19 +1,20 @@
 # 05 — Dataset assembly
 
-**What to build:** Validation and split stage: schema validation, semantic validation
-(in-chunk grounding, weight anchors), curriculum ordering by (triplet count, word count)
-ascending, strict entity decontamination train↔test (degrade to the ≥2-entity rule only if
-attrition exceeds 25%), splits of 2575 train / 75 val / 700 test, and the Alpaca projection
-rendered from the single prompt template.
+**What to build:** The labeled corpus → splits → Alpaca projection.
+> Superseded by the data-generation pivot (ADR-0003/0004): the typed-plan body
+> (curriculum ordering by triplet count, strict entity-title decontamination,
+> stratified audit fixture) belonged to the mohar07 reproduction line. The GraphRAG
+> line executes the split + final cleanup + Alpaca projection below.
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done (2026-09-03, GraphRAG form)
 
-- [ ] Validation rejects out-of-schema or ungrounded labels; rejection counts reported
-- [ ] Training file is ordered ascending by (triplet count, word count)
-- [ ] Decontamination removes every test sample sharing any normalized entity title with the
-      training set; attrition reported; the ≥2 rule engages only above 25% attrition
-- [ ] Splits are exactly 2575 / 75 / 700
-- [ ] Alpaca files (instruction/input/output) render from the template constant
-- [ ] A 100-sample stratified audit fixture is exported for the attribution suite
+- [x] Split (`dataset/graphrag_batch.py --stage split`): 2575 train / 75 val / 700 test, seed 7; the 10 tracer-eval passages sit in test only (verified: 0 eval ids in train/val)
+- [x] Final cleanup pass (`dataset/clean_labels.py`) over the merged labels; split train+val all present in labels (0 missing)
+- [x] Alpaca projection renders from the `STUDENT_PROMPT` constant (ADR-0004 derived prompt):
+  - full scale: `outputs/graphrag_full/alpaca_full_train.jsonl` (2575) / `alpaca_full_val.jsonl` (75), via `python dataset/build_alpaca.py --full`
+  - tracer: `outputs/tracer/alpaca_train.jsonl` (95) / `alpaca_val.jsonl` (5)
+- [x] Token check: p99 packed ≈ 4.9k tokens under the 6144 cutoff; ~4/2575 rows slightly exceed it (tails unlabelled, harmless)
+- [x] Tests green (125): `tests/test_student_prompt.py` guards verbatim teacher↔student prompt inheritance
+- [ ] (superseded) Curriculum ordering, strict decontamination, 100-sample attribution audit fixture — reproduction-line items, not executed here

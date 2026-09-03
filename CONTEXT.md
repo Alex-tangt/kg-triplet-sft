@@ -4,7 +4,52 @@ Reproduction and extension of the Qwen3-0.6B knowledge-graph triplet extraction 
 (data construction → LoRA SFT → evaluation → deployment), built as a resume-grade
 end-to-end project. The reproduction target is `mohar07/qwen3-0.6b-kg-triplets`.
 
+## Main line: GraphRAG-style extraction (ADR-0003 / ADR-0004)
+
+The data-generation line pivoted (owner-approved 2026-09) from the typed 20-relation
+reproduction to **open GraphRAG-style extraction** whose output feeds an MS GraphRAG
+graph-QA consumer. Terms below are the current working vocabulary; the `## Task & Data`
+section further down describes the reproduction line (kept as a validation gate).
+
+**label**:
+A passage annotated as `{entities: [{title, type, description}], relationships:
+[{source, target, description, strength}]}`. Titles are the **canonical uppercase** form
+(GraphRAG convention, ~99% ALL-CAPS in the data — not the original casing); types are
+`PERSON, ORGANIZATION, GEO, EVENT, CONCEPT`; descriptions are concise factual sentences
+(median ~92 chars) grounded in the chunk; `strength` is 0–10.
+
+**teacher prompt**:
+The official Microsoft GraphRAG extraction prompt (`kg_contract/graphrag_prompts.py`,
+verbatim, MIT) given to qwen3-flash. Batch labeling runs a fixed two-round schedule
+(r1 + r2 "continue", because batch inference has no adaptive loop); realtime/pilot runs
+the full completeness loop (`LOOP_PROMPT`/`CONTINUE_PROMPT`).
+
+**student prompt**:
+`STUDENT_PROMPT` (`kg_contract/student_prompt.py`) — the only prompt the fine-tuned
+model sees at train/eval/serve. **Derived** from the teacher prompt: Goal + Step-2
+semantics inherited verbatim, raw `("entity"<|>...)` grammar → a single JSON contract,
+examples stripped, casing/description wording calibrated to the measured labels. See
+ADR-0004 (deployment = our own JSON extraction API; the teacher/student prompts are
+deliberately distinct).
+
+**full labels / split**:
+3349 labeled passages at `dataset/data/graphrag_labels_full.jsonl`; assignment in
+`outputs/graphrag_batch/split.json` is 2575 train / 75 val / 700 test; the 10 tracer-eval
+passages live in test only.
+
+**alpaca**:
+Rendered from `STUDENT_PROMPT` + label JSON. Full scale:
+`outputs/graphrag_full/alpaca_full_train.jsonl` (2575) / `_val.jsonl` (75); tracer:
+`outputs/tracer/alpaca_train.jsonl` (95) / `_val.jsonl` (5).
+
+**eval axes (open format)**:
+Faithfulness / entity coverage / numeric preservation — `eval/tracer_eval.py` vs teacher
+reference labels. The vendored HGR harness (`entity_f1`, `composite` below) belongs to the
+reproduction line only.
+
 ## Task & Data
+
+(reproduction line — the typed 20-relation schema superseded for data generation)
 
 **triplet**:
 A knowledge-graph edge with `source {title, type}`, `relation {type, weight}`, `target {title, type}`,
@@ -16,10 +61,11 @@ inference (evaluation and serving). Reproduced character-for-character from the 
 project; the 20-relation ontology is implicit in the labels, never stated in the prompt.
 See ADR-0001.
 
-**teacher prompt**:
-The instruction given to the label-generating LLM (qwen3-flash). Independent of the target
-prompt; it carries the relation dictionary, entity-naming rules, the exhaustiveness demand,
-and the weight rubric, so the gold labels are high quality.
+**teacher prompt** (reproduction line):
+The instruction given to the label-generating LLM (qwen3-flash) in the typed-relation line.
+Independent of the target prompt; it carries the relation dictionary, entity-naming rules,
+the exhaustiveness demand, and the weight rubric, so the gold labels are high quality.
+(Replaced for data generation by the official GraphRAG teacher prompt above.)
 
 **weight**:
 Confidence that a relation holds given the text. Fixed anchors `0.2` (inferred) /

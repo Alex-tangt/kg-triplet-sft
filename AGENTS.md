@@ -22,6 +22,15 @@ docs/adr/   Decisions (prompt single source, own-test evaluation)
 
 ## Locked decisions (from the grilling session — do not silently reverse)
 
+> **Data-generation pivot (owner-approved 2026-09) — governs where the bullets below
+> conflict.** The student's task changed from mohar07's typed 20-relation triplets to open
+> GraphRAG-style extraction for an MS GraphRAG graph-QA consumer: labels are produced by the
+> official GraphRAG extraction prompt (entities/relationships + strength 0-10, ADR-0003); the
+> student prompt is DERIVED from that prompt, deployment is our own JSON extraction API, and
+> the teacher/student prompts are deliberately distinct (ADR-0004); training `cutoff_len` is
+> **6144**, not 2048. The bullets below stay as the reproduction line's record (composite /
+> harness evaluation) and apply only where not overridden by ADR-0003/0004.
+
 - **Round 1 scope**: 0.6B faithful reproduction + capacity curve (0.6/1.5/3B) + data-scale
   ablation (500/1300/2575 on 0.6B) + attribution suite. 8B and the pass line (entity_f1 ≥ 0.6)
   are **Round 2**, decided after the Round 1 review.

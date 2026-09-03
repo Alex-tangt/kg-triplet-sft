@@ -1,0 +1,32 @@
+# Tracer: SFT Qwen3-0.6B to imitate the GraphRAG-style teacher output
+# (entities+relationships JSON). LLaMA-Factory on Kaggle T4.
+#
+# Hyperparameters follow the locked Round-1 values EXCEPT cutoff_len, which
+# must grow from 2048 -> 6144 because the GraphRAG-format labels are ~2-6k
+# tokens of output (see dataset/build_alpaca.py stats); 2048 would truncate
+# almost every sample.
+
+model_name_or_path: Qwen/Qwen3-0.6B
+template: qwen
+stage: sft
+finetuning_type: lora
+dataset: graphrag_tracer
+cutoff_len: 6144
+
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 5.0e-5
+num_train_epochs: 5.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+
+lora_rank: 32
+lora_alpha: 32
+lora_dropout: 0.1
+target_modules: all
+
+logging_steps: 5
+save_steps: 200
+output_dir: saves/qwen3-0.6b-graphrag-tracer
+overwrite_output_dir: true
