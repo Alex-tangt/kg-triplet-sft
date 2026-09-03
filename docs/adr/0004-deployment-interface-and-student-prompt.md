@@ -25,17 +25,22 @@ convention; descriptions measured median ~92 chars single-sentence).
    teacher label under a weakened spec — would lower label quality and drag the
    eval bar down with it; that option was rejected.
 3. **`STUDENT_PROMPT` is derived from the official prompt**
-   (`kg_contract/student_prompt.py`): the Goal and Step-2 relationship
-   semantics are inherited **verbatim**; the raw `("entity"<|>...)` grammar,
-   `##` delimiter and `<|COMPLETE|>` are replaced by a single JSON contract;
-   the three in-prompt examples are dropped (the SFT corpus supplies examples);
-   casing/description wording is calibrated to the measured labels. Deliberate
-   deltas are listed in the module docstring.
+   (`kg_contract/student_prompt.py`): the Goal task statement is inherited
+   **verbatim** and the extraction semantics follow it; the raw
+   `("entity"<|>...)` grammar, `##` delimiter and `<|COMPLETE|>` are replaced by
+   a single JSON contract; the three in-prompt examples are dropped (the SFT
+   corpus supplies examples); casing/description wording is calibrated to the
+   measured labels; and **the field vocabulary is unified to the JSON keys**
+   (`title/type/description`, `source/target/description/strength`) — the
+   official field names (`entity_name`, `relationship_strength`, ...) are not
+   reused, so the model never sees two names for one output slot (field
+   leakage found in the tracer; fix is training-data side, applied here).
+   Deliberate deltas are listed in the module docstring.
 4. **Labels were not re-generated**: still official-prompt teacher output
    parsed to JSON (3349 full / 100 tracer).
-5. `tests/test_student_prompt.py` guards that the inherited sentences keep
-   appearing verbatim in the teacher prompt — an upstream text change that is
-   not mirrored turns the test red.
+5. `tests/test_student_prompt.py` guards that the shared Goal sentence keeps
+   appearing verbatim in the teacher prompt and that no official field name
+   leaks back into the student prompt.
 
 ## Evidence (prompt gate)
 

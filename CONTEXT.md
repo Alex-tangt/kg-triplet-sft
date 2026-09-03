@@ -26,11 +26,14 @@ the full completeness loop (`LOOP_PROMPT`/`CONTINUE_PROMPT`).
 
 **student prompt**:
 `STUDENT_PROMPT` (`kg_contract/student_prompt.py`) — the only prompt the fine-tuned
-model sees at train/eval/serve. **Derived** from the teacher prompt: Goal + Step-2
-semantics inherited verbatim, raw `("entity"<|>...)` grammar → a single JSON contract,
-examples stripped, casing/description wording calibrated to the measured labels. See
-ADR-0004 (deployment = our own JSON extraction API; the teacher/student prompts are
-deliberately distinct).
+model sees at train/eval/serve. **Derived** from the teacher prompt: the Goal task
+statement inherited verbatim, extraction semantics following it, raw
+`("entity"<|>...)` grammar → a single JSON contract, examples stripped, casing/
+description wording calibrated to the measured labels, and **one field vocabulary**
+throughout — `-STEPS-` uses the exact JSON keys (title/type/description,
+source/target/strength), not the official field names, so a small student never
+sees two names for one output slot. See ADR-0004 (deployment = our own JSON
+extraction API; the teacher/student prompts are deliberately distinct).
 
 **full labels / split**:
 3349 labeled passages at `dataset/data/graphrag_labels_full.jsonl`; assignment in
