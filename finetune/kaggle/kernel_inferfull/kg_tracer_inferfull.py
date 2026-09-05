@@ -286,16 +286,19 @@ def _infer_worker(rank: int, nprocs: int, passages: list[dict]) -> list[dict]:
     log(f"[gpu{rank}] worker on {torch.cuda.get_device_name(0)}; "
         f"{len(passages)} passages")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
+    log(f"[gpu{rank}] tokenizer loaded")
     # FP16 load (bf16 also works — decode is GEMV-bound so dtype does not matter
     # at bs=1 — but fp16 is the training-validated path).
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_PATH, torch_dtype=torch.float16, device_map="cuda",
         trust_remote_code=True,
     )
+    log(f"[gpu{rank}] base model loaded")
     model = PeftModel.from_pretrained(
         model, ADAPTER_DIR, torch_dtype=torch.float16
     ).merge_and_unload()
     model.eval()
+    log(f"[gpu{rank}] adapter merged, model ready")
 
     prompt = INPUTS["student_prompt"]
     rows: list[dict] = []
@@ -367,8 +370,8 @@ def _load_passages() -> list[dict]:
     Each line must be {"id": ..., "text": ...}.
     """
     cands = [os.environ.get("PASSAGES_FILE"),
-             "/kaggle/input/datasets/idalextan/trace-test-passages/test_passages.jsonl",
-             "/kaggle/input/idalextan/trace-test-passages/test_passages.jsonl"]
+             "/kaggle/input/trace-test-passages/test_passages.jsonl",
+             "/kaggle/input/datasets/idalextan/trace-test-passages/test_passages.jsonl"]
     for pf in cands:
         if pf and os.path.exists(pf):
             log(f"reading passages from {pf}")
@@ -380,6 +383,10 @@ def _load_passages() -> list[dict]:
                         r = json.loads(line)
                         out.append({"id": r["id"], "text": r["text"]})
             return out
+    log("WARNING: no passages file found; falling back to embedded INPUTS "
+        "(%d tracer passages). /kaggle/input top-level: %s" % (
+            len(INPUTS["passages"]),
+            ", ".join(os.listdir("/kaggle/input")) if os.path.isdir("/kaggle/input") else "n/a"))
     return list(INPUTS["passages"])
 
 

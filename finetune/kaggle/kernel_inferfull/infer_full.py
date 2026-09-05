@@ -242,16 +242,19 @@ def _infer_worker(rank: int, nprocs: int, passages: list[dict]) -> list[dict]:
     log(f"[gpu{rank}] worker on {torch.cuda.get_device_name(0)}; "
         f"{len(passages)} passages")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
+    log(f"[gpu{rank}] tokenizer loaded")
     # FP16 load (bf16 also works — decode is GEMV-bound so dtype does not matter
     # at bs=1 — but fp16 is the training-validated path).
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_PATH, torch_dtype=torch.float16, device_map="cuda",
         trust_remote_code=True,
     )
+    log(f"[gpu{rank}] base model loaded")
     model = PeftModel.from_pretrained(
         model, ADAPTER_DIR, torch_dtype=torch.float16
     ).merge_and_unload()
     model.eval()
+    log(f"[gpu{rank}] adapter merged, model ready")
 
     prompt = INPUTS["student_prompt"]
     rows: list[dict] = []
