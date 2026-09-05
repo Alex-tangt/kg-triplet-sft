@@ -1,0 +1,16 @@
+{
+  "id": "idalextan/kg-tracer-inferprof",
+  "title": "kg-tracer-inferprof",
+  "code_file": "prof_infer.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": ["idalextan/kg-tracer-lffull"],
+  "model_sources": ["qwen-lm/qwen-3/transformers/0.6b/1"]
+}

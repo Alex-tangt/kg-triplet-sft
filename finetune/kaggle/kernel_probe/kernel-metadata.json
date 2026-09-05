@@ -1,0 +1,16 @@
+{
+  "id": "idalextan/kg-tracer-probe",
+  "title": "kg-tracer-probe",
+  "code_file": "probe.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": ["idalextan/trace-test-passages"],
+  "competition_sources": [],
+  "kernel_sources": ["idalextan/kg-tracer-lffull"],
+  "model_sources": []
+}
