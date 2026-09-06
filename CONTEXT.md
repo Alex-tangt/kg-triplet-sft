@@ -46,9 +46,25 @@ Rendered from `STUDENT_PROMPT` + label JSON. Full scale:
 `outputs/tracer/alpaca_train.jsonl` (95) / `_val.jsonl` (5).
 
 **eval axes (open format)**:
-Faithfulness / entity coverage / numeric preservation — `eval/tracer_eval.py` vs teacher
-reference labels. The vendored HGR harness (`entity_f1`, `composite` below) belongs to the
-reproduction line only.
+Entity finding P/R/F1, edge (topology) finding P/R/F1, schema compliance, grounding/
+hallucination, numeric preservation — `eval/referent_eval.py` vs teacher reference
+labels. Matching is **referent-level** (same real-world entity): tier-1 normalized-
+exact title, tier-2 thinking-mode LLM with the shared identity rubric (`eval/
+referent_pair.py`); scored on a fixed stratified 200-passage sample for future
+models (the reference model ran all 699). See ADR-0007. The vendored HGR harness
+(`entity_f1`, `composite` below) belongs to the reproduction line only.
+
+**referent pairing**:
+The teacher↔student entity correspondence used as the eval's ground truth for
+"did the student find this entity". NOT title-string equality: the student garbles
+titles, so string matching understates. Two tiers — exact normalized-title pairs
+(no LLM) plus every remaining fuzzy pair decided by qwen3.7-flash in thinking mode
+with `IDENTITY_RUBRIC` (`eval/referent_pair.py`) and the passage text.
+
+**fixed eval sample**:
+`outputs/referent_eval/sample_200.json` — 200 test passages (60/40 wiki/arxiv,
+length terciles, fixed seed) that every future candidate model is scored on, so
+the eval is comparable across models at a bounded cost (ADR-0007).
 
 ## Task & Data
 
