@@ -96,10 +96,15 @@ def build_request_body(model, messages, temperature, max_tokens, enable_thinking
     return json.dumps(body).encode()
 
 
+LAST_USAGE: dict | None = None
+
+
 def http_transport(*, model, base_url, api_key, temperature, max_tokens, timeout, enable_thinking=True):
     """Real DashScope (OpenAI-compatible) transport. 5xx/429/network raise
-    :class:`RetryableError`; other 4xx raise :class:`NonRetryableError`."""
+    :class:`RetryableError`; other 4xx raise :class:`NonRetryableError`.
 
+    Each successful call also records the response ``usage`` dict on the module
+    global ``LAST_USAGE`` (consumers read-and-reset it after each call)."""
     def call(messages) -> str:
         body = build_request_body(model, messages, temperature, max_tokens, enable_thinking)
         req = urllib.request.Request(
@@ -117,6 +122,8 @@ def http_transport(*, model, base_url, api_key, temperature, max_tokens, timeout
             raise NonRetryableError(f"HTTP {e.code}: {e.reason}") from e
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             raise RetryableError(str(e)) from e
+        global LAST_USAGE
+        LAST_USAGE = data.get("usage")
         return data["choices"][0]["message"]["content"]
 
     return call

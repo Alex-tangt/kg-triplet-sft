@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dataset.io import read_jsonl  # noqa: E402
+from dataset import teacher as teacher_api  # noqa: E402
 from dataset.teacher import http_transport  # noqa: E402
 
 from eval.referent_common import (  # noqa: E402
@@ -70,6 +71,50 @@ SYSTEM_PROMPT = (
     "Reply with ONLY a JSON object, no prose:\n"
     '{"pairs": [[a, b], ...]}   (a = list-A index, b = list-B index; empty array allowed)'
 )
+
+# Cost-reduction experiment variants (ADR-0007). "hard" adds over-merge hardening
+# + worked exemplars; "strict" pins every ambiguous case to NOT SAME. The two votes
+# of the agree-only scheme are meant to differ in exactly this way.
+_EXAMPLES = (
+    "WORKED EXAMPLES (study these; they define 'same referent'):\n"
+    "1. teacher [0] PERSON 'Gene Tierney' - American actress, star of the 1944 film Laura.\n"
+    "   student [4] PERSON 'Geren Tierney' - actress, played in the movie Laura.\n"
+    "   -> same real-world person despite the misspelled title: pairs [[0, 4]].\n"
+    "2. teacher [2] ORGANIZATION 'Ferrari' - Italian luxury sports car manufacturer.\n"
+    "   student [7] PERSON 'Enzo Ferrari' - the founder of the car maker Ferrari.\n"
+    "   -> the person and the company merely co-occur; NOT SAME: pairs [].\n"
+    "3. teacher [1] CONCEPT 'Deep learning' - a branch of machine learning using many layers.\n"
+    "   student [3] CONCEPT 'Convolutional neural networks' - a specific model family within it.\n"
+    "   -> a general category and its instance are DIFFERENT referents: pairs [].\n"
+    "4. teacher [5] ORGANIZATION 'International Business Machines Corporation'.\n"
+    "   student [9] ORGANIZATION 'IBM'.\n"
+    "   -> abbreviation/word-order differences, same referent: pairs [[5, 9]].\n"
+)
+_HARD_EXTRA = (
+    "HARDENING:\n"
+    "- When two candidate titles differ but the DESCRIPTIONS point at the same individual/"
+    "object in the passage, they are the same referent (typos, case, plural, abbreviations, "
+    "word order). Prefer SAME here.\n"
+    "- But NEVER merge because entities share a topic, appear together, share one vocabulary "
+    "word, or are a type/specimen of another. A person is not their company, product, work, "
+    "role, or family name; a system is not its component or behavior.\n"
+    "- Different members of the same class (two people, two laws, two years) are never the "
+    "same referent.\n"
+)
+_STRICT_PIN = (
+    "FINAL RULE: if you cannot name, from the passage text, concrete evidence that the two "
+    "records are the SAME real-world referent, output NOT SAME (omit the pair). An empty "
+    "array is a valid and preferred answer when in doubt.\n"
+)
+
+
+def system_prompt(variant: str) -> str:
+    base = SYSTEM_PROMPT
+    if variant == "hard":
+        return SYSTEM_PROMPT + "\n" + _HARD_EXTRA + "\n" + _EXAMPLES
+    if variant == "strict":
+        return SYSTEM_PROMPT + "\n" + _STRICT_PIN
+    return base
 
 
 def _api_key() -> str:
@@ -202,7 +247,7 @@ def run_title(teacher_path: Path, student_path: Path, out: Path, limit: int | No
 
 def run_llm(teacher_path: Path, student_path: Path, out: Path, workers: int,
             limit: int | None, only_ids: list[str] | None, model: str, thinking: bool,
-            no_passage: bool, desc_len: int) -> None:
+            no_passage: bool, desc_len: int, variant: str = "default") -> None:
     teacher = {r["id"]: r for r in read_jsonl(teacher_path)}
     student = {r["id"]: r for r in read_jsonl(student_path)}
     ids = sorted(teacher)
@@ -225,6 +270,7 @@ def run_llm(teacher_path: Path, student_path: Path, out: Path, workers: int,
     lock = threading.Lock()
     done = 0
     start = time.time()
+    sys_content = system_prompt(variant)
 
     def work(pid: str) -> None:
         nonlocal done
@@ -238,9 +284,10 @@ def run_llm(teacher_path: Path, student_path: Path, out: Path, workers: int,
                 try:
                     passage = None if no_passage else teacher[pid]["text"]
                     raw = transport([
-                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "system", "content": sys_content},
                         {"role": "user", "content": build_subset_content(passage, unused_t, teacher[pid], unused_s, student[pid], desc_len)},
                     ])
+                    usage = teacher_api.LAST_USAGE
                     pairs = _parse_pairs(raw, len(t_entities), len(s_entities))
                     if pairs is None:
                         raise ValueError("unparseable pair JSON")
@@ -248,6 +295,10 @@ def run_llm(teacher_path: Path, student_path: Path, out: Path, workers: int,
                     extra = [p for p in pairs if p[0] in unused_t and p[1] in unused_s]
                     base_pairs = exact + extra
                     rec.update({"status": "ok", "pairs": base_pairs, "attempts": attempt + 1})
+                    if usage:
+                        rec["tokens"] = {
+                            k: usage.get(k) for k in ("prompt_tokens", "completion_tokens", "total_tokens")
+                        }
                     break
                 except Exception as exc:  # Retryable/NonRetryable + parse errors
                     if attempt == 3:
@@ -264,7 +315,6 @@ def run_llm(teacher_path: Path, student_path: Path, out: Path, workers: int,
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         list(pool.map(work, remaining))
-    n_ok = sum(1 for i in remaining if (existing.get(i) or {}).get("status") == "ok" or True)
     print(f"llm pairing done: {done} attempts wrote to {out} (elapsed {time.time() - start:.0f}s)")
 
 
@@ -281,6 +331,8 @@ def main(argv=None) -> int:
     p.add_argument("--thinking", action="store_true", help="enable qwen reasoning (slower; default off)")
     p.add_argument("--no-passage", action="store_true", help="omit the passage from the LLM call (ablation)")
     p.add_argument("--desc-len", type=int, default=160, help="description chars per entity (0 = omit descriptions)")
+    p.add_argument("--variant", choices=("default", "hard", "strict"), default="default",
+                   help="prompt variant: default | hard (rules+exemplars) | strict (ambiguous => NOT SAME)")
     args = p.parse_args(argv)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -289,7 +341,7 @@ def main(argv=None) -> int:
         run_title(args.teacher, args.student, out, args.limit, args.ids)
     else:
         run_llm(args.teacher, args.student, out, args.workers, args.limit, args.ids, args.model, args.thinking,
-                args.no_passage, args.desc_len)
+                args.no_passage, args.desc_len, args.variant)
     return 0
 
 

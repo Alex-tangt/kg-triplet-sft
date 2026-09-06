@@ -66,6 +66,18 @@ with `IDENTITY_RUBRIC` (`eval/referent_pair.py`) and the passage text.
 length terciles, fixed seed) that every future candidate model is scored on, so
 the eval is comparable across models at a bounded cost (ADR-0007).
 
+**reachability (consumer axis)**:
+Can a user reach a found entity in the consumer's graph — approximated by
+embedding retrieval: gold-description query against the deduped index of all
+student entity descriptions, recall@k of the referent-matched node. Local MiniLM,
+no API; conditional (of found) and unconditional reported; a sabotage fixture
+gates whether the axis is fielded (`eval/referent_reach.py`, ADR-0008).
+
+**duplicate / granularity (consumer axis)**:
+Student node-merges of several gold entities (combined nodes), exact normalized-
+title duplicates, and observable referent-splits, derived from the referent
+pairing with no API (`eval/referent_dup.py`, ADR-0008).
+
 ## Task & Data
 
 (reproduction line — the typed 20-relation schema superseded for data generation)

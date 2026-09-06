@@ -32,6 +32,15 @@ How to score a new fine-tuned model on the fixed eval sample. Decision context i
   the reference model's full-699 result (entity recall 0.541 / precision 0.707),
   the baseline to compare new models against on the same sample.
 
+## Consumer-side axes (report alongside the referent metrics)
+
+- Duplicate / granularity (API-free, derived from the pairing):
+  `python eval/referent_dup.py --pairs outputs/referent_eval/pairings_<tag>.jsonl`
+- Reachability retrieval simulation (local MiniLM; set HF_HUB_OFFLINE=1 +
+  TRANSFORMERS_OFFLINE=1 so the cached embedder loads without the hub):
+  `python eval/referent_reach.py`  (defaults: reference pairing + sample_200;
+  `--fixture` runs only the sabotage gate)
+
 ## Notes
 
 - New-model comparisons must use the SAME sample (paired comparison cancels
@@ -41,3 +50,8 @@ How to score a new fine-tuned model on the fixed eval sample. Decision context i
 - `--thinking` is required for the fuzzy tier; verify/intersection stages were
   tried and abandoned (ADR-0007) — do not reintroduce without re-measuring on a
   known-answer probe.
+- No-thinking judge cannot replace thinking (ADR-0008): hardened/strict prompts
+  and two-vote agree-only all fall short of the thinking probe (best 10/12 vs
+  12/12) while only cutting ~2.9-3.8x tokens. `eval/referent_pair.py --variant`
+  (default | hard | strict) is kept only for further cost experiments, not for
+  production pairing.
