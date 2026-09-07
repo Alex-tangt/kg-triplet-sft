@@ -64,6 +64,11 @@ python eval/referent_sample.py --n 200 --seed 20260906 --passages-out outputs/re
 
 # 1) infer the sample with the candidate model -> <tag>/predictions.jsonl
 #    (one {"id", entities[], relationships[]} per line, same ids)
+#    Use the pipeline's inference kernels, NOT ad-hoc code:
+#      reproduction/full: finetune/kaggle/README_inference.md  (kernel_inferfull)
+#      capacity line:     finetune/kaggle/kernel_capinfer/README.md
+#    Protocol MUST match the model's training format (chat vs plain, issue 08):
+#    chat-suppressed or plain-runaway numbers are not comparable.
 
 # 2) referent pairing (thinking LLM) — resumes existing rows in --out
 python eval/referent_pair.py --mode llm --workers 16 --no-passage --desc-len 300 --thinking `

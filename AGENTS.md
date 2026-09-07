@@ -14,7 +14,10 @@ Domain vocabulary lives in `CONTEXT.md`. Read it before naming anything.
 
 ```
 dataset/    Phase 1: corpus → cleaning → teacher labeling → validation → splits → Alpaca
-finetune/   Phase 2: LLaMA-Factory yaml configs (0.6B / 1.5B / 3B + data ablation) + dataset card
+finetune/   Phase 2: LLaMA-Factory yaml configs (0.6B / 1.5B / 3B + data ablation) + dataset card.
+            Inference kernels/runbooks: finetune/kaggle/README_inference.md (reproduction
+            inferfull stack), finetune/kaggle/kernel_capinfer/README.md (capacity line),
+            throughput study docs/inference-optimization-brief.md
 eval/       Phase 3: TWO lines — reproduction = vendored HGR harness (zero-change) under
             eval/harness/ + eval/tracer_eval.py; open GraphRAG line = referent-level pipeline
             eval/referent_*.py. Start at eval/README.md.

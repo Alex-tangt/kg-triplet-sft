@@ -67,6 +67,15 @@ with `IDENTITY_RUBRIC` (`eval/referent_pair.py`) and the passage text.
 length terciles, fixed seed) that every future candidate model is scored on, so
 the eval is comparable across models at a bounded cost (ADR-0007).
 
+**inference line**:
+The kernel stack that produces the student `predictions.jsonl` the referent eval
+consumes. Reproduction/full stack: `finetune/kaggle/README_inference.md`
+(`kernel_inferfull`, dual-GPU batch). Capacity line:
+`finetune/kaggle/kernel_capinfer/README.md` (per-size self-contained kernels,
+chat/plain protocol warning). Throughput study:
+`docs/inference-optimization-brief.md`. Protocol (chat vs plain) must match the
+model's training format — capacity models are being retrained in chat (issue 08).
+
 **reachability (consumer axis)**:
 Can a user reach a found entity in the consumer's graph — approximated by
 embedding retrieval: gold-description query against the deduped index of all
