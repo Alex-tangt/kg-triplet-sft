@@ -77,6 +77,19 @@ Same 200-sample referent eval (micro):
 The masked run is statistically at the reference (n=200, ±~2.7 pt) — root cause
 confirmed. 0.6B full run: 1610 steps, final loss 0.355, ~50 min, ~2 CNY.
 
+### 1.4b Update (same evening): 1.7B masked trained and evaluated
+
+Same recipe on the 4090 (`out/1.7b_masked`, 1610 steps ~1 h 37 m, ~3.5 s/step)
+then inferred with the parser-fixed kernel at `BATCH_SIZE=8` (200/200, ~32 min).
+Predictions + report: `outputs/capacity_eval/qwen3-1.7b-masked/`,
+`outputs/referent_eval/report_qwen3-1.7b-masked.json`. Evidence and curve
+reading live in issue 08 "Run log 2026-09-07 evening". Headline: **recall rises
+(micro 0.536→0.590) but F1 stays flat ~0.60 and schema/hallucination degrade**
+(valid 0.919→0.844, halluc 0.166→0.234) — size buys recall at the cost of
+precision/schema discipline in this recipe; the over-production may partly be a
+decode-verbosity/truncation artifact, not pure capability. 4B not run yet (owner
+stopped the instance to digest before ~3–4 h GPU).
+
 ### 1.5 Lessons
 
 1. **自洽 ≠ 可比.** "Config identical" is only provable against the anchor kernel,

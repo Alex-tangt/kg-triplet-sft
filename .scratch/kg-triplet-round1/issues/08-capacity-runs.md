@@ -190,4 +190,49 @@ checkboxes from actual run-dir artifacts.
 Context: `finetune/compshare/train_unsloth.py` (canonical), `kernel_lffull/lffull.py`
 (anchor), unsloth docs + issues #1017/#5230, `docs/2026-09-07-capacity-line-repair.md`.
 
+## Run log 2026-09-07 evening — 1.7B masked trained, inferred, evaluated (issue 08 curve point 2/3)
+
+**Training (CompShare 4090 `kg-tracer`, host run `out/1.7b_masked`, same canonical
+masked recipe).** `train_unsloth.py --model /root/models/Qwen3-1.7B --train-jsonl
+data/alpaca_full_train.jsonl --out out/1.7b_masked --bs 2 --epochs 5 --ga 4
+--save-every 322 --optim adamw_torch --mask --merge`. PLAN + FORMAT_OK + MASK_OK +
+full receipt logged in `run_17b_masked.log`; artifacts `run_config.json` /
+`format_check.json` / `mask_check.json` / `receipt.json` in the run dir. 1610
+optimizer steps (~322/epoch), trainable 34,865,152 / 1,755,440,128 (1.99%),
+bf16, eff bs 8. **Wall ~1 h 37 m** (~3.5 s/step steady), peak VRAM ~9.5 GB.
+Receipt: `adapter_saved: true`, `merged_saved: true`, 5 checkpoints (322…1610).
+(receipt `final_step_loss` 0.2948 is the checkpoint-966 trainer-state snapshot —
+same quirk as the 0.6B run; last-logged losses ran 0.20–0.29.) Data sha matches
+the 0.6B masked card; diff-cards PASS vs 0.6B (only model/model_dir/out differ).
+
+**Inference (same 4090, kernel derived from the parser-fixed `kernel_cap06m`).**
+Host `infer_cap17m.py` = sed-clone of the 0.6B masked infer script with
+`MODEL_SLUG=…1.7b/1`, `DATASET=kg-cap17b-masked-adapter`,
+`WORK=/root/kg/infer_out_17m`, `BATCH_SIZE=8`, chat protocol, EARLY_STOP off.
+`/kaggle` symlink tree: `models/…/transformers/1.7b/1 → /root/models/Qwen3-1.7B`,
+`kg-cap17b-masked-adapter → out/1.7b_masked/adapter`; passages read from
+`cap-upload/sample_200_passages.jsonl`. **200/200 rows, ~32 min** (GPU 96%,
+~9.6 GB); predictions pulled to
+`outputs/capacity_eval/qwen3-1.7b-masked/predictions.jsonl` (200 lines, schema-clean).
+
+**Eval (200-sample referent, thinking judge; `report_qwen3-1.7b-masked.json`).**
+
+| run | macro R/P/F1 | micro R/P/F1 | schema valid | halluc |
+|---|---|---|---|---|
+| reference (ref200) | 0.551 / 0.721 / 0.602 | 0.534 / 0.723 / 0.614 | 0.931 | 0.142 |
+| 0.6B masked | 0.559 / 0.713 / 0.604 | 0.536 / 0.699 / 0.607 | 0.919 | 0.166 |
+| **1.7B masked** | **0.608 / 0.714 / 0.609** | **0.590 / 0.597 / 0.594** | 0.844 | 0.234 |
+
+**Curve reading.** Recall rises with size (micro 0.536→0.590; macro 0.559→0.608)
+but micro precision falls 0.699→0.597 (>CI ±0.03) and **F1 is flat** (~0.60 for
+every point including reference). Schema discipline and grounding degrade at 1.7B:
+valid 0.919→0.844, empty_description 43→641, type OOV 3→16, hallucination
+0.166→0.234 — the larger model over-produces (student entities 3805→4905, rels
+1308→2315; items 7220) and long-decodes get truncated into schema-empty rows. Open
+question for the curve: precision/schema cost may be a decode-length/verbosity
+artifact (MAX_NEW_TOKENS 8192, verbose model truncation) as much as a capability
+limit; a 4B point (or a length/`temperature` axis) would disambiguate. 4B masked
+not yet run — the owner stopped the instance to digest this before spending the
+~3–4 h / ~6–8 CNY a 4B run needs.
+
 ## Comments
