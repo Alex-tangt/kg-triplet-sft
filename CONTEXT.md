@@ -52,7 +52,8 @@ labels. Matching is **referent-level** (same real-world entity): tier-1 normaliz
 exact title, tier-2 thinking-mode LLM with the shared identity rubric (`eval/
 referent_pair.py`); scored on a fixed stratified 200-passage sample for future
 models (the reference model ran all 699). See ADR-0007. The vendored HGR harness
-(`entity_f1`, `composite` below) belongs to the reproduction line only.
+(`entity_f1`, `composite` below) belongs to the reproduction line only. Full
+commands, data contracts and per-axis caveats: `eval/README.md`.
 
 **referent pairing**:
 The teacher↔student entity correspondence used as the eval's ground truth for
@@ -76,7 +77,11 @@ gates whether the axis is fielded (`eval/referent_reach.py`, ADR-0008).
 **duplicate / granularity (consumer axis)**:
 Student node-merges of several gold entities (combined nodes), exact normalized-
 title duplicates, and observable referent-splits, derived from the referent
-pairing with no API (`eval/referent_dup.py`, ADR-0008).
+pairing with no API (`eval/referent_dup.py`, ADR-0008). Blank/`-` titles are
+excluded before normalization (a blank-title `normalize('')`→`none` bug inflated
+dup on placeholder-heavy outputs; fixed). Raw-output redundancy and invalid-item
+checks (volume, empty/no-letter titles, OOV types, dangling/dup/self edges) are
+a separate API-free diagnostic: `eval/referent_redundancy.py`.
 
 ## Task & Data
 

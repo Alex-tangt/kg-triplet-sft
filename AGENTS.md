@@ -15,9 +15,11 @@ Domain vocabulary lives in `CONTEXT.md`. Read it before naming anything.
 ```
 dataset/    Phase 1: corpus → cleaning → teacher labeling → validation → splits → Alpaca
 finetune/   Phase 2: LLaMA-Factory yaml configs (0.6B / 1.5B / 3B + data ablation) + dataset card
-eval/       Phase 3: the vendored HGR evaluation harness (kept zero-change) + report scripts
+eval/       Phase 3: TWO lines — reproduction = vendored HGR harness (zero-change) under
+            eval/harness/ + eval/tracer_eval.py; open GraphRAG line = referent-level pipeline
+            eval/referent_*.py. Start at eval/README.md.
 serve/      Phase 4: LLaMA-Factory export (merge + GGUF), Ollama Modelfile, Gradio demo
-docs/adr/   Decisions (prompt single source, own-test evaluation)
+docs/adr/   Decisions (0001–0008; eval decisions in 0007/0008)
 ```
 
 ## Locked decisions (from the grilling session — do not silently reverse)
@@ -49,6 +51,23 @@ docs/adr/   Decisions (prompt single source, own-test evaluation)
 - **Evaluation**: our own test split only (ADR-0002); default harness config is the reporting
   baseline; the threshold sweep is only 3 configs (default / 0.60+0.30 / --no-embeddings).
 
+### Open-line evaluation (overrides the reproduction bullets where they conflict)
+
+- **Referent-level**: teacher↔student matching on same-real-world-entity identity,
+  two-tier — free exact-title pairs + thinking-mode LLM judge (`qwen3.7-flash`,
+  shared `IDENTITY_RUBRIC`, ADR-0007). Never treat a single no-thinking pass as
+  the headline: it over-merges co-occurring concepts and cannot be tuned to
+  thinking parity (hardened/agree/escalation all failed, ADR-0008).
+- **Fixed sample**: every future model is scored on the same stratified 200
+  passages (`outputs/referent_eval/sample_200.json`, ±2.1pt CI) against the
+  reference baseline `report_ref200.json`. `outputs/full_eval/` gold + reference
+  predictions are shared inputs — do not regenerate.
+- **Consumer axes**: reachability (MiniLM retrieval sim), dup/granularity,
+  raw-output redundancy diagnostics. Full commands + data contracts: `eval/README.md`.
+- **Cross-protocol caution**: capacity-line models are trained chat OR plain; eval
+  must match the training format. Mixing protocols conflates capability and
+  protocol penalty (issue 08) — call it out in any comparison.
+
 ## Conventions
 
 - Python 3.12. `uv` for the vendored eval harness; plain scripts + requirements for the rest.
@@ -60,6 +79,9 @@ docs/adr/   Decisions (prompt single source, own-test evaluation)
 
 - Eval harness: `uv run python scripts/evaluation.py --no-embeddings --limit 50` must print a
   composite in [0, 1] and exit 0 (offline lexical fallback).
+- Open-line eval tooling: `python -m py_compile eval/referent_*.py` must pass; the reachability
+  sabotage gate `python eval/referent_reach.py --fixture` must print `PASS` (with
+  `HF_HUB_OFFLINE=1`); `referent_eval --ids` must accept a sample subset (bootstrap ns adapts).
 - Data pipeline: every script must run end-to-end on a tiny fixture (a few samples), never
   require the full corpus to verify.
 - Training scripts: no local GPU — correctness is verified by a dry-run / config print, real
