@@ -1,0 +1,20 @@
+{
+  "id": "idalextan/kg-tracer-cap4b",
+  "title": "kg-tracer-cap4b",
+  "code_file": "kg_tracer_cap4b.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "idalextan/cap-upload"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": [
+    "qwen-lm/qwen-3/transformers/4b/1"
+  ]
+}

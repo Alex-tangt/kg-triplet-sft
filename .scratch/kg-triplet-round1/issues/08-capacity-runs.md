@@ -92,4 +92,46 @@ needs an explicit call-out, not a silent assumption.
 Context: `train_unsloth.py` (plain concat), `lffull.py:111` (template `qwen3_nothink`,
 chat), kernel_inferfull/cap_infer (chat eval protocol). See `docs/adr/0006`, `0007`.
 
+## Resolution 2026-09-07 — root cause is TRAINING (no EOS), decision = chat-format retrain (OWNER-APPROVED)
+
+**Root cause (re-attributed).** The runaway decode is NOT an inference-protocol
+artifact and NOT a matching error in the plain inference path (the plain concat is
+byte-identical to `train_unsloth.py` `build_text`). It is a **training defect**: the
+plain format packs samples with no per-sample EOS (`packing=True`, EOS only at the
+packed-sequence end, ADR-0006), so the model never learns to stop after one output.
+Evidence — same 95 passages, cap06:
+- chat protocol: 2/95 rows >10k chars (median 4.3k) — base's own `<|im_end|>` EOS
+  (151645) stops decode;
+- plain protocol: 88/95 rows >10k chars (median 34k) — no learned stop → generates
+  to the 8192 cap; 26/119 (22%) never even close their braces, and those 22% cannot
+  be salvaged by truncation (empty/fragment parse).
+So plain was never a viable eval line for these models regardless of early-stop
+engineering; the cost (5.6h/200, fragile `_JsonClose` criteria, runaway rows) is the
+training defect surfacing, not a fixable inference problem.
+
+**Schema-prefix injection is protocol-agnostic** (both chat and plain kernels force
+`{"entities": [`); it was NOT the differentiator. The differentiator is the stop
+signal, which only chat prompts inherit (from the base's chat template/EOS).
+
+**Decision (owner-approved 2026-09-07): retrain the capacity line in CHAT format** —
+keep the Unsloth/4090 stack but render each Alpaca sample through the Qwen3 chat
+template (im_start/im_end markers, thinking OFF) so the model learns to end its output
+with `<|im_end|>`: train = eval = serve = deploy format, self-consistent like the
+reference 0.6B line, stopping for free, no early-stop hack, comparable to the fp16
+anchor. ~5.5h / 11 CNY on the CompShare 4090 (cost accepted). Option (b): modify
+`train_unsloth.py` text construction to apply the chat template (do NOT switch to
+LLaMA-Factory); verify whether unsloth `packing=True` still omits per-sample EOS and
+whether chat im_end then survives packing — if not, the minimal change is appending
+the EOS/im_end token per sample instead of a full chat re-template.
+
+**Superseded.** The 2026-09-06 "Next actions" item 3 ("re-run in plain if it
+recovers") is void — plain cannot be the eval line. The early-stop prototype
+(`cap_infer.py` EARLY_STOP / `_JsonClose` / `_truncate_at_json_close`, kernel
+`kg-tracer-cap06ps`) is shelved for the capacity curve; may be reused only for a
+future plain-trained model whose training DID include a stop token.
+
+**Done artifacts.** A/B + redundancy + dup analyses live in
+`outputs/capacity_eval/` (`redundancy_{reference,cap06_chat,cap06_plain}.json`,
+`dup_{reference,cap06_chat,cap06_plain}.json`, `qwen3-0.6b[-plain]/predictions.jsonl`).
+
 ## Comments

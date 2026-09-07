@@ -38,10 +38,18 @@ in the model field.
    grad-accum 8, lr 5e-5, cosine + warmup_ratio 0.03, 5 epochs, packing to 6144,
    `adamw_8bit`, grad-checkpoint "unsloth". Runs differ **only** in
    `--model / --train-jsonl / --out`.
-3. **Data formatting**: uniform plain Alpaca concat
-   `instruction [+"\n"+input] + "\n\n" + output` (no chat template — base models
-   have none), identical bytes across all three sizes. EOS is the final token of
-   the packed sequence.
+3. **Data formatting — SUPERSEDED, see correction below.** ~uniform plain Alpaca
+   concat `instruction [+"\n"+input] + "\n\n" + output`, claimed "no chat template
+   because these are base models". That claim was WRONG: the loaded checkpoints are
+   the Qwen3 main (chat) releases (`eos=<|im_end|>`, `chat_template.jinja` present),
+   not `-Base`. Training with plain concat on a chat-tokenized model, while the eval
+   harness uses the shared chat protocol (ADR-0001), produced a **protocol mismatch
+   that is size-asymmetric** and flattens the curve slope. Rule going forward:
+   **the capacity line must be trained AND evaluated in the same chat protocol as
+   the reference 0.6B line** (qwen3 no-think chat template). See issue 08 Finding
+   (2026-09-06) and the A/B result (2026-09-07). If a rerun is approved, train via
+   `apply_chat_template(enable_thinking=False)` + assistant output + EOS, NOT plain
+   concat.
 4. **Artifacts per run** (`/root/kg/out/<run>/` on the instance):
    `checkpoint-NNN` (Peft adapter, cadence `--save-every 50`),
    `adapter/` (final), `merged/` (optional, full bf16 via
@@ -58,7 +66,7 @@ in the model field.
 |---|---|---|---|---|
 | Qwen3-0.6B | 43.7 min | 0.635 | 0.637 | ~5 GB |
 | Qwen3-1.7B | ~88 min | 0.535 | 0.549 | ~12 GB |
-| Qwen3-4B | ~3.2 h (est) | in progress | (eval off) | ~13 GB |
+| Qwen3-4B | ~3.2 h | 0.467 | (eval off) | ~13 GB |
 
 Tracer micro-batch throughput at 6144 tokens: 0.6B ~0.46 s/bs1, ~0.41 s/bs2
 (unsloth). The external "8B on A10 in 30 min" claim is not reproducible at full
@@ -67,6 +75,13 @@ Tracer micro-batch throughput at 6144 tokens: 0.6B ~0.46 s/bs1, ~0.41 s/bs2
 
 ## Lessons (enforced in the script)
 
+- **Verify the tokenizer before choosing a training format.** "Base has no chat
+  template" was an assumption that cost the whole line: check `eos_token` /
+  `chat_template` presence first (one file read). Assumptions about model identity
+  go into ADRs only after measurement.
+- **Training protocol must equal eval protocol** (single-source prompt, ADR-0001);
+  a deliberate deviation must be recorded as a decision with its downstream
+  consequences, not a silent "curve-internal" rule.
 - **Eval can OOM on big models**: 1.7B died at the step-161 eval because eval
   upcasts logits to fp32 (bs2×6144×151k). Fixes: `per_device_eval_batch_size=1`
   when eval is on, `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, and
