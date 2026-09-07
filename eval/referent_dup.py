@@ -46,6 +46,7 @@ def main(argv=None) -> int:
     p.add_argument("--teacher", type=Path, default=DEFAULT_TEACHER)
     p.add_argument("--student", type=Path, default=DEFAULT_STUDENT)
     p.add_argument("--pairs", type=Path, required=True)
+    p.add_argument("--ids", nargs="*", default=None, help="restrict to these passage ids (else all teacher passages)")
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args(argv)
 
@@ -56,7 +57,10 @@ def main(argv=None) -> int:
     per_passage = []
     agg = {"gold_split_entities": 0, "gold_merge_entities": 0, "student_dup_pairs": 0,
            "passages": 0}
+    only = set(args.ids) if args.ids else None
     for pid in sorted(teacher):
+        if only and pid not in only:
+            continue
         st = student.get(pid)
         if not st:
             continue
@@ -70,7 +74,10 @@ def main(argv=None) -> int:
         g_merge = sum(1 for v in s2t.values() if len(v) > 1)
         seen_norm: dict[str, list[int]] = {}
         for i, e in enumerate(se):
-            n = normalize(e.get("title"))
+            raw_t = (e.get("title") or "").strip()
+            if not raw_t or raw_t == "-":
+                continue  # placeholder/blank titles must not collapse onto one key
+            n = normalize(raw_t)
             if n:
                 seen_norm.setdefault(n, []).append(i)
         s_dup = sum(len(v) - 1 for v in seen_norm.values() if len(v) > 1)

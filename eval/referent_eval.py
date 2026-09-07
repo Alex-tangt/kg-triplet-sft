@@ -208,6 +208,7 @@ def bootstrap_table(rows: list[dict], ns=(50, 100, 150, 200, 300), reps=3000, se
     et = [r["edge_tp_t"] for r in rows]
     ed = [r["n_teacher_rels"] for r in rows]
     idx = list(range(len(rows)))
+    ns = tuple(n for n in ns if n <= len(rows))
     out: dict[str, list[dict]] = {}
     for n in ns:
         rec_e, rec_g = [], []
@@ -229,15 +230,19 @@ def main(argv=None) -> int:
     p.add_argument("--teacher", type=Path, default=DEFAULT_TEACHER)
     p.add_argument("--student", type=Path, default=DEFAULT_STUDENT)
     p.add_argument("--pairs", type=Path, required=True)
+    p.add_argument("--ids", nargs="*", default=None, help="restrict to these passage ids (else all teacher passages)")
     p.add_argument("--out", type=Path, default=None)
     args = p.parse_args(argv)
 
     teacher = {r["id"]: r for r in read_jsonl(args.teacher)}
     student = {r["id"]: r for r in read_jsonl(args.student)}
     pairs_by_id = load_pairs(args.pairs)
+    only = set(args.ids) if args.ids else None
 
     rows = []
     for pid in sorted(teacher):
+        if only and pid not in only:
+            continue
         st = student.get(pid)
         if not st:
             continue
