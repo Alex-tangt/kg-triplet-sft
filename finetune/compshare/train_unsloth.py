@@ -1,26 +1,36 @@
-"""Round-1 capacity-curve training (chat protocol, Unsloth, single 4090).
+"""Round-1 capacity-curve training (canonical masked recipe, Unsloth, 4090).
 
-Format/protocol decision (see issue 08 Finding 2026-09-06):
-training texts are rendered through the base tokenizer's chat template with
-thinking disabled (``enable_thinking=False``), i.e. the same qwen3 no-think
-protocol the eval harness consumes. A plain-concat training line is known to be
-suppressed under chat eval and is deliberately not reproduced here.
+Root-cause fix (recipe-audit 2026-09-07, issue 08): the previous capacity runs
+trained on a hand-stitched raw ``text`` field, which Unsloth treats as
+continued-pretraining -- causal LM loss over EVERY token including the long
+user prompt. The reference fp16 line (LLaMA-Factory SFT) masks the prompt and
+supervises only the assistant response; ~85-90% of our loss budget was spent
+predicting prompt continuation, which is why wrapper changes (plain/chat) never
+moved the referent score (~0.44 vs reference ~0.53).
 
-Uniform run behaviour (identical across every curve member):
-r=32 alpha=32, bf16, cutoff 6144, bs 2 x ga 8, lr 5e-5, cosine + warmup 0.03,
-5 epochs, seed 42, adamw_8bit, packing=True, eval=OFF, save_every 50.
-The ONLY allowed difference between runs is --model / --out.
+This canonical recipe mirrors the reference on every learning-relevant axis:
+  - text rendered through a NO-THINK chatml template (the Qwen3 default template
+    injects an empty <think>\\n\\n</think> preamble the reference does not train
+    with) via messages -> apply_chat_template (canonical Unsloth flow)
+  - response-only loss masking via unsloth.chat_templates.train_on_responses_only
+  - eff batch 8 (bs 2 x ga 4), warmup 0.1, dropout 0.1, adamw_torch, bf16,
+    lr 5e-5 cosine, 5 epochs, seed 42, cutoff 6144
+  - NON-packed (one example per sequence): unsloth ignores packing while
+    UNSLOTH_RETURN_LOGITS=1, and non-packed also mirrors the reference
+    LLaMA-Factory SFT step semantics one-to-one
+  - UNSLOTH_RETURN_LOGITS=1 (community workaround for fused-loss sparse-mask
+    silent zero-gradient, unsloth#5230)
 
-Integrity artifacts written under <out>/:
-  run_config.json  - pure-file config card (data sha256, tokenizer markers, hyperparams)
-  format_check.json- rendered sample + chat-marker assertions (from the loaded tokenizer)
-  receipt.json     - post-train evidence (global_step, final loss, checkpoints present)
+Integrity artifacts under <out>/: run_config.json, format_check.json
+(masked-sample evidence), receipt.json.
 
 Usage:
-  python train_unsloth.py --write-card --model M --train-jsonl D --out O   # card only
-  python train_unsloth.py --diff-cards C1 C2 C3 ...                        # fail if runs differ beyond --model/--out
-  python train_unsloth.py --model M --train-jsonl D --out O [--merge]      # real run
-  python train_unsloth.py ... --limit 50                                   # debug cap
+  python train_unsloth.py --write-card --model M --train-jsonl D --out O
+  python train_unsloth.py --diff-cards C1 C2 C3 ...
+  python train_unsloth.py --model M --train-jsonl D --out O [--merge]
+  ... --no-mask                       # legacy full-seq variant
+  ... --packing                       # re-enable packing (ignored while RETURN_LOGITS=1)
+  ... --limit 50                         # smoke cap
 """
 import argparse
 import hashlib
@@ -30,31 +40,43 @@ import os
 import sys
 from datetime import datetime
 
+os.environ.setdefault("UNSLOTH_RETURN_LOGITS", "1")
+
 SEQ = 6144
 LORA_R = 32
 LORA_A = 32
-LORA_DROPOUT = 0.05
-GA = 8
+LORA_DROPOUT = 0.1
+GA = 4
 LR = 5e-5
 EPOCHS = 5
 SEED = 42
-FORMAT = "chat_qwen3_nothink"
+WARMUP_RATIO = 0.1
+OPTIM = "adamw_torch"
+PRECISION = "bf16"
+FORMAT = "chat_qwen3_nothink_masked"
 
 DIFF_ALLOWED = {"model", "model_dir", "out", "timestamp"}
 CARD_KEYS = ["model", "model_dir", "tokenizer_eos", "chat_template_in_cfg",
              "chat_template_jinja", "im_tokens", "train_jsonl", "data_sha256",
              "rows", "bs", "ga", "eff_bs", "epochs", "seq", "lr", "r", "alpha",
              "dropout", "precision", "scheduler", "warmup_ratio", "seed",
-             "optim", "weight_decay", "packing", "format", "eval", "save_every",
-             "merge", "limit", "out", "timestamp"]
+             "optim", "weight_decay", "packing", "mask", "format", "eval",
+             "save_every", "merge", "limit", "out", "timestamp"]
+
+# Qwen3 chatml WITHOUT the think preamble (reference/llamafactory qwen3_nothink
+# layout). Plain chatml: each message is <|im_start|><role>\\n<content><|im_end|>\\n.
+NO_THINK_CHATML = (
+    "{% for message in messages %}"
+    "{{ '<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n' }}"
+    "{% endfor %}"
+    "{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
+)
 
 
-def file_sha256(path, limit=None):
+def file_sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for i, chunk in enumerate(iter(lambda: f.read(1 << 20), b"")):
-            if limit and i >= limit:
-                break
+        for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
 
@@ -101,7 +123,8 @@ def model_dir_info(model):
     return d
 
 
-def make_card(model, train_jsonl, out, bs, epochs, ga, limit, merge, save_every):
+def make_card(model, train_jsonl, out, bs, epochs, ga, limit, merge, save_every,
+              packing, mask, optim):
     info = model_dir_info(model)
     card = {
         "model": model,
@@ -115,9 +138,11 @@ def make_card(model, train_jsonl, out, bs, epochs, ga, limit, merge, save_every)
         "rows": count_rows(train_jsonl, limit),
         "bs": bs, "ga": ga, "eff_bs": bs * ga, "epochs": epochs, "seq": SEQ,
         "lr": LR, "r": LORA_R, "alpha": LORA_A, "dropout": LORA_DROPOUT,
-        "precision": "bf16", "scheduler": "cosine", "warmup_ratio": 0.03,
-        "seed": SEED, "optim": "adamw_8bit", "weight_decay": 0.0,
-        "packing": True, "format": FORMAT, "eval": "off",
+        "precision": PRECISION, "scheduler": "cosine",
+        "warmup_ratio": WARMUP_RATIO,
+        "seed": SEED, "optim": optim, "weight_decay": 0.0,
+        "packing": bool(packing), "mask": "response_only" if mask else "none",
+        "format": FORMAT, "eval": "off",
         "save_every": save_every, "merge": bool(merge), "limit": limit or 0,
         "out": out,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -126,6 +151,13 @@ def make_card(model, train_jsonl, out, bs, epochs, ga, limit, merge, save_every)
 
 
 def render_chat(tokenizer, row):
+    """Render one row through the no-think chatml template (canonical path).
+
+    The base Qwen3 tokenizer's default chat_template injects an empty
+    <think>\\n\\n</think> block before the assistant turn; callers must install
+    NO_THINK_CHATML (see main) before rendering so the text byte-matches the
+    reference no-think layout.
+    """
     instruction = row["instruction"]
     extra = row.get("input") or ""
     user = instruction + ("\n" + extra if extra else "")
@@ -133,19 +165,41 @@ def render_chat(tokenizer, row):
         {"role": "user", "content": user},
         {"role": "assistant", "content": row["output"]},
     ]
-    try:
-        text = tokenizer.apply_chat_template(
-            conv, add_generation_prompt=False, tokenize=False,
-            enable_thinking=False)
-    except TypeError:
-        text = tokenizer.apply_chat_template(
-            conv, add_generation_prompt=False, tokenize=False)
+    text = tokenizer.apply_chat_template(
+        conv, tokenize=False, add_generation_prompt=False)
+    if "<|im_start|>user" not in text or "<|im_start|>assistant" not in text:
+        raise RuntimeError("no-think chatml did not wrap the user/assistant turns")
+    if not text.rstrip().endswith("<|im_end|>"):
+        raise RuntimeError("no-think chatml did not close the assistant turn with <|im_end|>")
     if "<think>" in text:
-        raise RuntimeError("chat template leaked thinking tokens into a training row")
-    stripped = text.rstrip()
-    if not stripped.endswith("<|im_end|>"):
-        raise RuntimeError("chat template did not close the assistant turn with <|im_end|>")
+        raise RuntimeError("no-think chatml leaked a thinking preamble")
     return text
+
+
+def verify_mask(dataset, tokenizer, n=3):
+    """Evidence that train_on_responses_only masking is real, not all -100."""
+    out = {"checked": 0, "all_masked": 0, "samples": []}
+    for i in range(min(n, len(dataset))):
+        item = dataset[i]
+        keys = set(item.keys())
+        if "labels" not in keys:
+            out["samples"].append({"idx": i, "keys": sorted(keys),
+                                   "note": "no labels column yet"})
+            continue
+        labels = item["labels"]
+        active = sum(1 for v in labels if v != -100)
+        head = labels[:200]
+        masked = all(v == -100 for v in head)
+        out["checked"] += 1
+        if active == 0:
+            out["all_masked"] += 1
+        out["samples"].append({
+            "idx": i, "len": len(labels), "active_labels": active,
+            "head_all_masked": masked,
+            "decoded_tail": tokenizer.decode(
+                [v if v != -100 else 0 for v in labels][-120:])[-80:],
+        })
+    return out
 
 
 def run_diff(card_paths):
@@ -183,6 +237,13 @@ def main():
     ap.add_argument("--merge", action="store_true",
                     help="also save a merged bf16 full model under <out>/merged")
     ap.add_argument("--save-every", type=int, default=50)
+    ap.add_argument("--packing", dest="packing", action="store_true", default=False,
+                    help="pack multiple examples per sequence (NOTE: unsloth ignores "
+                         "packing while UNSLOTH_RETURN_LOGITS=1; default run is non-packed)")
+    ap.add_argument("--mask", dest="mask", action="store_true", default=True)
+    ap.add_argument("--no-mask", dest="mask", action="store_false",
+                    help="legacy full-sequence LM loss (for A/B only)")
+    ap.add_argument("--optim", default=OPTIM)
     ap.add_argument("--write-card", action="store_true")
     ap.add_argument("--diff-cards", nargs="+", default=None)
     args = ap.parse_args()
@@ -196,7 +257,8 @@ def main():
 
     card = make_card(args.model, args.train_jsonl, args.out,
                      args.bs, args.epochs, args.ga, args.limit,
-                     args.merge, args.save_every)
+                     args.merge, args.save_every, args.packing, args.mask,
+                     args.optim)
     card_path = os.path.join(args.out, "run_config.json")
     with open(card_path, "w", encoding="utf-8") as f:
         json.dump(card, f, ensure_ascii=False, indent=2)
@@ -206,15 +268,18 @@ def main():
     per_epoch = math.ceil(rows / eff_bs)
     print(f"PLAN model={args.model} rows={rows} bs={args.bs} ga={args.ga} "
           f"eff_bs={eff_bs} epochs={args.epochs} seq={SEQ} lr={LR} r={LORA_R} "
+          f"warmup={WARMUP_RATIO} dropout={LORA_DROPOUT} optim={args.optim} "
+          f"packing={args.packing} mask={'response_only' if args.mask else 'none'} "
           f"format={FORMAT} eval=off save_every={args.save_every}", flush=True)
     if args.write_card:
         print("CARD_WRITTEN", card_path, flush=True)
         return
 
+    import unsloth  # noqa: F401  (must precede transformers/peft imports)
+    from unsloth import FastLanguageModel, UnslothTrainer, UnslothTrainingArguments
     import torch
     from datasets import Dataset
     from peft import PeftModel
-    from unsloth import FastLanguageModel, UnslothTrainer, UnslothTrainingArguments
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=args.model,
@@ -224,24 +289,30 @@ def main():
     )
 
     tokenizer_eos = getattr(tokenizer, "eos_token", None)
-    has_tpl = getattr(tokenizer, "chat_template", None) is not None
     if tokenizer_eos != "<|im_end|>":
         raise RuntimeError(f"unexpected eos_token {tokenizer_eos!r}; expected <|im_end|> (chat release)")
-    if not has_tpl:
-        raise RuntimeError("loaded tokenizer has no chat_template; refusing plain-concat fallback")
+    if getattr(tokenizer, "chat_template", None) is None:
+        raise RuntimeError("loaded tokenizer has no chat_template")
+
+    # no-think chatml for the whole training render; keep the original to
+    # restore before saving artifacts (so merged/adapter templates stay stock).
+    orig_template = tokenizer.chat_template
+    tokenizer.chat_template = NO_THINK_CHATML
 
     data_rows = read_rows(args.train_jsonl, args.limit)
     sample = render_chat(tokenizer, data_rows[0])
     format_check = {
         "ok": True, "format": FORMAT, "eos_token": tokenizer_eos,
-        "sample_head": sample[:160],
+        "template_override": True, "sample_head": sample[:160],
     }
+    texts = [render_chat(tokenizer, r) for r in data_rows]
+    train_ds = Dataset.from_list([{"text": t} for t in texts])
+
+    tokenizer.chat_template = orig_template
+
     with open(os.path.join(args.out, "format_check.json"), "w", encoding="utf-8") as f:
         json.dump(format_check, f, ensure_ascii=False, indent=2)
     print("FORMAT_OK", flush=True)
-
-    texts = [render_chat(tokenizer, r) for r in data_rows]
-    train_ds = Dataset.from_list([{"text": t} for t in texts])
 
     model = FastLanguageModel.get_peft_model(
         model,
@@ -256,12 +327,12 @@ def main():
         num_train_epochs=args.epochs,
         learning_rate=LR,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
+        warmup_ratio=WARMUP_RATIO,
         bf16=True,
         logging_steps=1,
         output_dir=args.out,
         report_to="none",
-        optim="adamw_8bit",
+        optim=args.optim,
         weight_decay=0.0,
         seed=SEED,
         save_strategy="steps",
@@ -275,10 +346,26 @@ def main():
         tokenizer=tokenizer,
         train_dataset=train_ds,
         args=training_args,
-        packing=True,
+        packing=args.packing,
         dataset_text_field="text",
         max_seq_length=SEQ,
     )
+
+    if args.mask:
+        from unsloth.chat_templates import train_on_responses_only
+        trainer = train_on_responses_only(
+            trainer,
+            instruction_part="<|im_start|>user\n",
+            response_part="<|im_start|>assistant\n",
+        )
+        check = verify_mask(trainer.train_dataset, tokenizer)
+        mask_path = os.path.join(args.out, "mask_check.json")
+        with open(mask_path, "w", encoding="utf-8") as f:
+            json.dump(check, f, ensure_ascii=False, indent=2)
+        if check["all_masked"]:
+            raise RuntimeError("masking produced all--100 labels; wrong markers")
+        print("MASK_OK", json.dumps(check, ensure_ascii=False), flush=True)
+
     trainer.train()
     trainer.save_model(os.path.join(args.out, "adapter"))
 
@@ -292,23 +379,27 @@ def main():
         tokenizer.save_pretrained(os.path.join(args.out, "merged"))
 
     state = {}
+    state_path = os.path.join(args.out, "trainer_state.json")
+    if not os.path.exists(state_path):
+        cks = sorted(p for p in os.listdir(args.out)
+                     if p.startswith("checkpoint-") and p.split("-")[1].isdigit())
+        if cks:
+            state_path = os.path.join(args.out, cks[-1], "trainer_state.json")
     try:
-        with open(os.path.join(args.out, "trainer_state.json"), encoding="utf-8") as f:
+        with open(state_path, encoding="utf-8") as f:
             state = json.load(f)
     except OSError:
         pass
     history = state.get("log_history", [])
-    final = {}
-    for e in history:
-        if "train_loss" in e:
-            final = e
+    losses = [e for e in history if "loss" in e]
+    final_step_loss = losses[-1].get("loss") if losses else None
     checkpoints = sorted(
         int(p.split("-")[1]) for p in os.listdir(args.out)
         if p.startswith("checkpoint-") and p.split("-")[1].isdigit())
     receipt = {
         "model": args.model, "out": args.out, "card": card_path,
         "global_step": state.get("global_step"), "epoch": state.get("epoch"),
-        "final_train_loss": final.get("train_loss"),
+        "final_step_loss": final_step_loss,
         "num_checkpoints": len(checkpoints), "checkpoints": checkpoints,
         "adapter_saved": os.path.isdir(os.path.join(args.out, "adapter")),
         "merged_saved": os.path.isdir(os.path.join(args.out, "merged")),

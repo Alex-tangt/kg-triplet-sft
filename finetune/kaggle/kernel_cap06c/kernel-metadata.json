@@ -1,0 +1,21 @@
+{
+  "id": "idalextan/kg-tracer-cap06c",
+  "title": "kg-tracer-cap06c",
+  "code_file": "kg_tracer_cap06c.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "idalextan/cap-upload",
+    "idalextan/kg-cap06b-chat-adapter"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": [
+    "qwen-lm/qwen-3/transformers/0.6b/1"
+  ]
+}

@@ -36,7 +36,8 @@ SIZES = [
 
 
 def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
-          protocol: str, early_stop: bool) -> None:
+          protocol: str, early_stop: bool, adapter_dataset: str | None,
+          suffix: str, adapter_root: bool, batch: int) -> None:
     src = (HERE / "cap_infer.py").read_text(encoding="utf-8")
     inputs = INPUTS_PATH.read_text(encoding="utf-8")
 
@@ -48,6 +49,11 @@ def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
                             f'MODEL_SLUG = "{model_slug}"')
     merged = merged.replace('ADAPTER_NAME = "%%ADAPTER_NAME%%"',
                             f'ADAPTER_NAME = "{adapter}"')
+    if batch != 4:
+        merged = merged.replace("BATCH_SIZE = 4", f"BATCH_SIZE = {batch}")
+    if adapter_dataset is not None:
+        merged = merged.replace('DATASET = "cap-upload"',
+                                f'DATASET = "{adapter_dataset}"')
     merged = merged.replace('PROTOCOL = "%%PROTOCOL%%"',
                             f'PROTOCOL = "{protocol}"')
     if not early_stop:
@@ -58,12 +64,15 @@ def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
         merged = merged.replace("LIMIT = None", f"LIMIT = {limit}")
 
     tag = size_tag + ("p" if protocol == "plain" else "")
-    tag = tag + ("s" if early_stop else "")
+    tag = tag + ("s" if early_stop else "") + suffix
     out = KAGLE / f"kernel_cap{tag}"
     out.mkdir(parents=True, exist_ok=True)
     code_name = f"kg_tracer_cap{tag}.py"
     (out / code_name).write_text(merged, encoding="utf-8")
 
+    dataset_sources = ["idalextan/cap-upload"]
+    if adapter_dataset is not None:
+        dataset_sources.append(f"idalextan/{adapter_dataset}")
     meta = {
         "id": f"idalextan/kg-tracer-cap{tag}",
         "title": f"kg-tracer-cap{tag}",
@@ -75,14 +84,16 @@ def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
         "enable_tpu": "false",
         "enable_internet": "true",
         "machine_shape": "NvidiaTeslaT4",
-        "dataset_sources": ["idalextan/cap-upload"],
+        "dataset_sources": dataset_sources,
         "competition_sources": [],
         "kernel_sources": [],
         "model_sources": [model_slug],
     }
     (out / "kernel-metadata.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    print(f"{out.name}: {model_slug} protocol={protocol} limit={limit} -> {code_name}")
+    print(f"{out.name}: {model_slug} protocol={protocol} limit={limit} "
+          f"adapter={adapter} dataset={adapter_dataset or 'cap-upload'} "
+          f"suffix={suffix!r} -> {code_name}")
 
 
 def main(argv=None) -> int:
@@ -92,11 +103,28 @@ def main(argv=None) -> int:
     ap.add_argument("--early-stop", action="store_true",
                     help="stop each decode when the JSON object closes")
     ap.add_argument("--only", default=None, help="build only this size tag (e.g. 06)")
+    ap.add_argument("--adapter-dataset", default=None,
+                    help="mount adapters from this extra Kaggle dataset slug "
+                         "instead of idalextan/cap-upload (e.g. kg-cap06b-chat-adapter)")
+    ap.add_argument("--adapter-name", default=None,
+                    help="override the adapter folder name under the dataset")
+    ap.add_argument("--adapter-root", action="store_true",
+                    help="adapter files sit at the dataset ROOT (ADAPTER_NAME=\"\") "
+                         "-- Kaggle CLI uploads cannot keep nested folders")
+    ap.add_argument("--batch", type=int, default=4,
+                    help="decode batch size (per worker); raise for larger GPUs, "
+                         "e.g. 12 on a single 4090 vs 4 on T4")
+    ap.add_argument("--suffix", default="",
+                    help="extra tag suffix so a variant run does not clobber an existing dir")
     args = ap.parse_args(argv)
     for tag, adapter, slug in SIZES:
         if args.only and tag != args.only:
             continue
-        build(tag, adapter, slug, args.limit, args.protocol, args.early_stop)
+        adapter = "" if args.adapter_root else adapter
+        if not args.adapter_root and args.adapter_name is not None:
+            adapter = args.adapter_name
+        build(tag, adapter, slug, args.limit, args.protocol, args.early_stop,
+              args.adapter_dataset, args.suffix, args.adapter_root, args.batch)
     return 0
 
 

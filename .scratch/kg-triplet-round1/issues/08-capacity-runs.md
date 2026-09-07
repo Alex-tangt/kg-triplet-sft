@@ -134,4 +134,60 @@ future plain-trained model whose training DID include a stop token.
 `outputs/capacity_eval/` (`redundancy_{reference,cap06_chat,cap06_plain}.json`,
 `dup_{reference,cap06_chat,cap06_plain}.json`, `qwen3-0.6b[-plain]/predictions.jsonl`).
 
+## Resolution 2026-09-07b — deeper root cause is LOSS COVERAGE; canonical masked recipe validated (OWNER-APPROVED)
+
+**One-liner.** Retraining in chat alone did NOT close the gap to reference: the
+0.6B chat-format run (think-preamble training, no mask) still scored ~0.44 referent
+recall — identical to the plain-trained baseline. A recipe audit against the anchor
+kernel (`finetune/kaggle/kernel_lffull/lffull.py`) found the real structural
+difference: LLaMA-Factory SFT defaults to **response-only loss** (masks the prompt),
+while every capacity run fed Unsloth a raw concatenated `text` field, which is a
+**full-sequence continued-pretraining loss** — with the long prompt ≈10x the JSON
+answer, ~85–90% of gradient trained prompt continuation, not extraction. This is why
+two different text wrappers (plain/chat) scored identically: both lacked masking.
+
+**Evidence chain (all on the same fixed 200-sample referent eval, micro metrics):**
+| run | recall | precision | F1 | schema valid | halluc |
+|---|---|---|---|---|---|
+| reference fp16 (ref200 baseline) | 0.533 | 0.723 | 0.614 | 0.931 | 0.142 |
+| plain-train / chat-eval (cap06) | 0.440 | 0.600 | 0.508 | 0.808 | 0.257 |
+| chat-train think-preamble / no mask (0.6b_chat) | 0.419 | 0.557 | 0.478 | 0.836 | 0.321 |
+| **canonical masked 0.6B (0.6b_masked)** | **0.536** | **0.699** | **0.607** | **0.919** | **0.166** |
+
+The masked run meets the reference within the n=200 CI (±~2.7pt) — root cause
+confirmed and the fix validated.
+
+**Canonical masked recipe** (`finetune/compshare/train_unsloth.py`, one 4090):
+no-think chatml render via messages→`apply_chat_template` (stock Qwen3 template
+injects an empty `<think>` block the reference does not train with — override +
+restore), response-only loss via
+`unsloth.chat_templates.train_on_responses_only("<|im_start|>user\n",
+"<|im_start|>assistant\n")`, eff batch 8 (bs2×ga4), warmup 0.1, dropout 0.1,
+`adamw_torch`, bf16, lr 5e-5 cosine, 5 epochs, cutoff 6144, non-packed
+(`UNSLOTH_RETURN_LOGITS=1` disables packing by design — dodges unsloth#5230 and
+mirrors reference step semantics), `save_every` 322. Evidence per run:
+`run_config.json` / `format_check.json` / `mask_check.json` / `receipt.json`.
+0.6B full run: 1610 steps, final loss 0.355, ~50 min, ~2 CNY.
+
+**Inference/kernel fixes folded in:**
+- `cap_infer.py` tolerant parser now drops non-object entity/relationship rows on
+  the strict-parse path too (wikipedia-02211 style bare-string rels crashed
+  `referent_eval` and forced a 199/200 report); predictions are schema-clean
+  (validated: 0 non-dict items across the 200).
+- 4090 efficiency: `make_capinfer.py --batch N` (bake `BATCH_SIZE`); bs4→12 for
+  0.6B on one 4090 ≈ 5x wall (GPU 24%→95%). fp16 keeps parity with the reference
+  eval line (fp16 == bf16 on Ampere).
+
+**Decision (owner-approved): the canonical masked recipe IS the capacity line.**
+The 2026-09-07 "chat-format retrain" (Resolution 2026-09-07) produced
+`0.6b_chat` (0.44 — think preamble + no mask, superseded); the validated recipe is
+`0.6b_masked` (`outputs/adapters/qwen3-0.6b_masked/`, out
+`outputs/capacity_eval/qwen3-0.6b-masked/`). Remaining curve work: train
+**1.7B and 4B with the same canonical masked recipe** (~2.5h + ~5–6h on the 4090,
+~16–18 CNY est) and infer via the parser-fixed kernel; then tick the open
+checkboxes from actual run-dir artifacts.
+
+Context: `finetune/compshare/train_unsloth.py` (canonical), `kernel_lffull/lffull.py`
+(anchor), unsloth docs + issues #1017/#5230, `docs/2026-09-07-capacity-line-repair.md`.
+
 ## Comments

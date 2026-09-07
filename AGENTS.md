@@ -15,14 +15,17 @@ Domain vocabulary lives in `CONTEXT.md`. Read it before naming anything.
 ```
 dataset/    Phase 1: corpus → cleaning → teacher labeling → validation → splits → Alpaca
 finetune/   Phase 2: LLaMA-Factory yaml configs (0.6B / 1.5B / 3B + data ablation) + dataset card.
-            Inference kernels/runbooks: finetune/kaggle/README_inference.md (reproduction
-            inferfull stack), finetune/kaggle/kernel_capinfer/README.md (capacity line),
+            Capacity line: finetune/compshare/train_unsloth.py (canonical masked
+            recipe, one CompShare RTX 4090). Inference kernels/runbooks:
+            finetune/kaggle/README_inference.md (reproduction inferfull stack),
+            finetune/kaggle/kernel_capinfer/README.md (capacity line),
             throughput study docs/inference-optimization-brief.md
 eval/       Phase 3: TWO lines — reproduction = vendored HGR harness (zero-change) under
             eval/harness/ + eval/tracer_eval.py; open GraphRAG line = referent-level pipeline
             eval/referent_*.py. Start at eval/README.md.
 serve/      Phase 4: LLaMA-Factory export (merge + GGUF), Ollama Modelfile, Gradio demo
 docs/adr/   Decisions (0001–0008; eval decisions in 0007/0008)
+docs/       Reports: 2026-09-07-capacity-line-repair.md (root cause + 4090 train/infer guidance)
 ```
 
 ## Locked decisions (from the grilling session — do not silently reverse)
@@ -69,7 +72,37 @@ docs/adr/   Decisions (0001–0008; eval decisions in 0007/0008)
   raw-output redundancy diagnostics. Full commands + data contracts: `eval/README.md`.
 - **Cross-protocol caution**: capacity-line models are trained chat OR plain; eval
   must match the training format. Mixing protocols conflates capability and
-  protocol penalty (issue 08) — call it out in any comparison.
+  protocol penalty (issue 08) — call it out in any comparison. The capacity line's
+  validated recipe is **canonical masked** (no-think chatml + response-only
+  masking), not plain concat and not the stock chat template.
+
+### Capacity-line lessons (2026-09-07) — do not regress these
+
+- **自洽 ≠ 可比.** "Config identical" may only be asserted **against the anchor
+  kernel** (reference line = `finetune/kaggle/kernel_lffull/lffull.py`); a
+  diff-cards PASS among sibling capacity runs only proves self-consistency and
+  silently missed a structural gap vs the anchor (loss coverage, template,
+  packing, eff batch, warmup, dropout). Always produce a reference-vs-candidate
+  table before spending GPU on a comparative run.
+- **A raw `dataset_text_field` = continued-pretraining loss** (every token,
+  prompt included). SFT requires explicit response-only masking via
+  `unsloth.chat_templates.train_on_responses_only` (markers
+  `<|im_start|>user\n` / `<|im_start|>assistant\n`); verify `mask_check.json`
+  (head masked, response ids present, not all `-100`).
+- **Qwen3 stock chat template injects an empty `<think>` block** in training
+  renders; mirror the reference/eval by overriding `tokenizer.chat_template`
+  with no-think chatml, and restore it before `save_pretrained`.
+- **`UNSLOTH_RETURN_LOGITS=1` disables unsloth packing** (`packing=True ignored`)
+  — acceptable: non-packed mirrors the reference step semantics and dodges the
+  fused-loss sparse-mask bug (unsloth#5230).
+- **Run-to-run evidence lives in the run dir**: `run_config.json` (card),
+  `format_check.json`, `mask_check.json`, `receipt.json`; tick issue checkboxes
+  only from those artifacts.
+- **4090 inference**: same `kernel_capinfer` code as Kaggle but raise decode
+  batch (`make_capinfer.py --batch 12` for 0.6B on one 4090 → ~5x wall vs bs4,
+  GPU ~95%). fp16 == bf16 throughput on Ampere; fp16 keeps parity with the
+  reference eval line. Run it on the 4090 host via a `/kaggle` symlink tree
+  instead of a Kaggle kernel when quota is tight (see the repair report).
 
 ## Conventions
 
@@ -87,8 +120,10 @@ docs/adr/   Decisions (0001–0008; eval decisions in 0007/0008)
   `HF_HUB_OFFLINE=1`); `referent_eval --ids` must accept a sample subset (bootstrap ns adapts).
 - Data pipeline: every script must run end-to-end on a tiny fixture (a few samples), never
   require the full corpus to verify.
-- Training scripts: no local GPU — correctness is verified by a dry-run / config print, real
-  runs happen on Kaggle with checkpointing.
+- Training scripts: no local GPU — correctness is verified locally by a
+  dry-run / config card diff (`train_unsloth.py --write-card` +
+  `--diff-cards`); real runs happen on the CompShare 4090 with `format_check` /
+  `mask_check` / `receipt` evidence in the run dir.
 
 ## Related projects (same machine, reference only)
 
