@@ -103,6 +103,26 @@ docs/       Reports: 2026-09-07-capacity-line-repair.md (root cause + 4090 train
   GPU ~95%). fp16 == bf16 throughput on Ampere; fp16 keeps parity with the
   reference eval line. Run it on the 4090 host via a `/kaggle` symlink tree
   instead of a Kaggle kernel when quota is tight (see the repair report).
+- **Mask-check is not the only schema risk**: 4B masked emits ~17% of rows with
+  UPPERCASE schema keys (`"TITLE"/"TYPE"/…`), which the tolerant parser drops
+  (salvage keys on lowercase only) → those rows land EMPTY. When comparing sizes
+  state whether the number is canonical (strict) or case-tolerant ("clean", e.g.
+  `qwen3-4b-masked-clean`); deploy must decide on a key-normalizing parser.
+- **Decode budget vs gold**: the fixed-200 gold answers are median ~1.9k / p95
+  ~3.3k tokens (max 8.7k), so `max_new_tokens=8192` is ~4x over-provisioned; a
+  JSON-close early stop or ~5k cap covers ~98% at a fraction of the wall time.
+
+### Round-1 status (2026-09-07 closeout)
+
+Round-1 capacity work is **complete**: the canonical masked recipe ran on all
+three sizes (0.6/1.7/4B, CompShare 4090, receipts in each host run dir),
+inferred, and referent-evaluated — predictions/reports under
+`outputs/capacity_eval/qwen3-{0.6b,1.7b,4b}-masked/` and
+`outputs/referent_eval/report_qwen3-…-masked{,-clean}.json`. Final curve reading
++ table: `docs/2026-09-07-capacity-line-repair.md` §1.4c and issue 08 Closeout.
+Open/optional items (not Round-1 blockers): HF adapter push, a deploy ADR on
+case-tolerant parsing, and the Round-1 review gate; issue-09 ablation and the 8B
+pass line stay Round-2.
 
 ## Conventions
 

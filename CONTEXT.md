@@ -87,10 +87,33 @@ reference fp16/LLaMA-Factory line on every learning-relevant axis: each row is
 rendered through a **no-think chatml** template via messages →
 `apply_chat_template`, loss is **response-only** (masked), eff batch 8, warmup
 0.1, dropout 0.1, `adamw_torch`, bf16, lr 5e-5 cosine, 5 epochs, cutoff 6144,
-non-packed, `UNSLOTH_RETURN_LOGITS=1`. Validated: 0.6B with this recipe scores
+non-packed, `UNSLOTH_RETURN_LOGITS=1`. Validated on all three sizes (0.6B / 1.7B /
+4B, Round-1 capacity scope complete 2026-09-07): 0.6B with this recipe scores
 macro recall 0.559 / F1 0.604 (micro 0.536/0.607) on the fixed 200-sample —
 statistically at the reference baseline (0.551/0.602, micro 0.533/0.614). See
-issue 08 Resolution 2026-09-07b.
+issue 08 Resolution 2026-09-07b + Closeout and
+`docs/2026-09-07-capacity-line-repair.md` §1.4.
+
+**case-tolerant parse ("clean")**:
+A re-parse of a model's raw output that lowercases UPPERCASE schema keys
+(`"TITLE"→"title"`, `"TYPE"→"type"`, `"SOURCE"→"source"`, object-level
+`"ENTITIES"`/`"RELATIONSHIPS"` too) before the tolerant parser runs. Only the 4B
+masked model needs it: ~17% of its rows emit ALL-CAPS keys, which the strict
+tolerant parser drops (salvage keys on lowercase only) so those rows land EMPTY.
+Label the two readings explicitly when comparing: canonical (strict, deploy-true
+for a lowercase-key consumer) vs clean (case-tolerant, capability-true). e.g.
+`qwen3-4b-masked` canonical micro F1 0.651 (34 empty rows) vs
+`qwen3-4b-masked-clean` 0.701 (13 empty rows).
+
+**capacity curve (masked, complete 2026-09-07)**:
+The Round-1 capacity question answered with the canonical masked recipe on the
+fixed 200 sample (micro entity R/P/F1): reference 0.534/0.723/0.614 → 0.6B
+0.536/0.699/0.607 → 1.7B 0.590/0.597/0.594 → 4B-clean 0.664/0.743/0.701 (4B
+strict 0.595/0.720/0.651). Recall is monotone in size; edge F1 and
+low-hallucination both favour 4B strongly (0.233 edge F1, halluc 0.084 clean).
+1.7B is the curve's precision/schema dip (over-production). Artifacts:
+`outputs/capacity_eval/qwen3-{0.6b,1.7b,4b}-masked[-clean]/predictions.jsonl`,
+`outputs/referent_eval/report_qwen3-…-masked{,-clean}.json`.
 
 **response-only masking**:
 The reference/LLaMA-Factory SFT default that our first capacity runs lacked:
@@ -184,6 +207,9 @@ weight 0.10 / grounding 0.15), with inapplicable axes dropped and the rest renor
 Faithful 0.6B reproduction + capacity curve (0.6/1.5/3B) + data-scale ablation +
 attribution suite. Acceptance: composite in 0.55–0.75 with the same axis shape as the
 original's 0.6583, both scaling curves, and an attribution answer for the low entity_f1.
+(2026-09-07 status: the capacity-curve component is **complete** on the canonical
+masked recipe; issue-09 data ablation was deferred; the Round-1 review/closeout gate
+and the 8B pass line are outstanding.)
 
 **Round 2**:
 (Scoped only after the Round 1 review.) 8B sprint for the pass line, possibly with a

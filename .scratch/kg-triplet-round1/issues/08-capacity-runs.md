@@ -13,6 +13,13 @@ Adapters + merged models pushed/mirrored for the eval thread.
 
 **Status:** done (2026-09-05: 0.6B bf16 anchor, 1.7B, 4B all trained on CompShare 4090)
 
+**Status (2026-09-07 closeout):** the plain-bf16 curve above was INVALIDATED by the
+findings below; the **masked-recipe curve (0.6B / 1.7B / 4B) is trained, inferred
+and referent-evaluated — Round-1 capacity scope COMPLETE.** Canonical-parse micro
+entity recall 0.536 / 0.590 / 0.595 and case-tolerant ("clean") 4B 0.664 / F1 0.701;
+final table + reading in the Closeout section and `docs/2026-09-07-capacity-line-repair.md`
+§1.4c. This issue is now the historical record; do not re-open for curve runs.
+
 - [ ] A config-diff check that only --model / --out differ across the three runs.
       **NOT run — falsely ticked 2026-09-05.** Actual differences: eval on/off
       (0.6B/1.7B yes, 4B no) and checkpoint cadence; the optimizer-relevant config
@@ -283,5 +290,31 @@ the clean numbers quantify the ceiling once a tolerant extractor (case-insensiti
 key normalization) absorbs the casing quirk — worth an ADR if deploy adopts it.
 Cost this leg: ~4B train ~3h47 (~8 CNY) + infer ~1 h (~2 CNY) + two 200-pairing
 eval passes.
+
+## Closeout 2026-09-07 — Round-1 capacity scope complete (masked recipe)
+
+**State.** The canonical masked recipe (issue 08 Resolution 2026-09-07b) is now the
+one valid capacity line. All three sizes trained on the CompShare 4090 with
+evidence artifacts in each host run dir (`out/{0.6b,1.7b,4b}_masked/`:
+`run_config.json` / `format_check.json` / `mask_check.json` / `receipt.json` +
+5 checkpoints + adapter + merged; receipts also state data sha `2b8d80c9…`).
+Config cards differ only in model/model_dir/out/timestamp (diff-cards PASS by card
+comparison). Inferred 200/200 per size via the parser-fixed kernel. Predictions and
+referent reports live under `outputs/capacity_eval/qwen3-{0.6b,1.7b,4b}-masked/`
+and `outputs/referent_eval/report_qwen3-{0.6b,1.7b,4b}-masked{,-clean}.json`.
+
+**Numbers.** See the repair report §1.4 table. Recall is monotone in size
+(micro 0.536 / 0.590 / 0.595 strict; 0.664 clean-4B); F1 0.607 / 0.594 / 0.651
+strict and **0.701 clean-4B** — the best model on every axis under a
+case-tolerant consumer. 1.7B is the curve's precision/schema dip
+(over-production, empty descriptions); 4B is the strongest extractor but emits
+~17% rows with UPPERCASE schema keys that strict parsing drops (34 empty rows vs
+13 case-tolerant).
+
+**Remaining (optional / Round 2, not Round-1 blockers).** (a) Push adapters/merged
+to Hugging Face (adapters + merged are on the host; checkbox below stays open). (b)
+Deploy decision on a case-insensitive key-normalizing parser (ADR candidate; would
+move 4B from canonical 0.651 to clean 0.701 as the headline). (c) Round-1 review
+vs acceptance criteria; pass-line/8B and issue-09 ablation remain Round-2/deferred.
 
 ## Comments
