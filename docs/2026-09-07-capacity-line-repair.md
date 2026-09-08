@@ -90,6 +90,30 @@ precision/schema discipline in this recipe; the over-production may partly be a
 decode-verbosity/truncation artifact, not pure capability. 4B not run yet (owner
 stopped the instance to digest before ~3–4 h GPU).
 
+### 1.4c Final curve (same day, 4B added) — the "bigger = sloppier" reading was 1.7B-specific
+
+4B masked trained (canonical recipe, ~3 h 47 m on the 4090; NB the real 4B base is
+`/model/ModelScope/Qwen/Qwen3-4B`, `/root/models/Qwen3-4B` shards never
+downloaded) and inferred (kernel, `BATCH_SIZE=4`). ~17% of 4B rows emit
+**uppercase schema keys** (`"TITLE"`…) that the tolerant parser drops → 34 empty
+rows under the canonical parse. Re-parsing the raws with case-normalized keys
+recovers them ("clean"). Fixed-200 micro referent numbers:
+
+| run | micro R/P/F1 | edge F1 | schema valid | halluc |
+|---|---|---|---|---|
+| reference (ref200) | .534 / .723 / .614 | .086 | .931 | .142 |
+| 0.6B masked | .536 / .699 / .607 | .091 | .919 | .166 |
+| 1.7B masked | .590 / .597 / .594 | .160 | .844 | .234 |
+| 4B masked (canonical) | .595 / .720 / .651 | .217 | .941 | .099 |
+| **4B masked (clean)** | **.664 / .743 / .701** | **.233** | **.953** | **.084** |
+
+Read: recall is monotone in size (0.536→0.590→0.664) and, once the casing quirk is
+absorbed, F1 rises to 0.701 with the best schema/hallucination of the whole set.
+The strict (canonical) numbers remain the deploy-true ones for a lowercase-key
+consumer; a case-tolerant deploy parser is the natural follow-up decision.
+Predictions/reports: `outputs/capacity_eval/qwen3-4b-masked{,-clean}/`,
+`outputs/referent_eval/report_qwen3-4b-masked{,-clean}.json`.
+
 ### 1.5 Lessons
 
 1. **自洽 ≠ 可比.** "Config identical" is only provable against the anchor kernel,

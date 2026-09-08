@@ -235,4 +235,53 @@ limit; a 4B point (or a length/`temperature` axis) would disambiguate. 4B masked
 not yet run — the owner stopped the instance to digest this before spending the
 ~3–4 h / ~6–8 CNY a 4B run needs.
 
+## Run log 2026-09-07 night — 4B masked + full curve + uppercase-key casing finding (curve point 3/3)
+
+**Training (CompShare 4090 `kg-tracer`, host `out/4b_masked`, canonical masked recipe).**
+Note: the pre-downloaded `/root/models/Qwen3-4B` was BROKEN (safetensors shards
+failed to fetch in the original `dl_4b.sh` — xet 401, only `.index.json` present).
+The real 4B base is the ModelScope image path `/model/ModelScope/Qwen/Qwen3-4B`
+(the same path the original plain 4B run used). Run:
+`train_unsloth.py --model /model/ModelScope/Qwen/Qwen3-4B --train-jsonl
+data/alpaca_full_train.jsonl --out out/4b_masked --bs 2 --epochs 5 --ga 4
+--save-every 322 --optim adamw_torch --mask --merge` — 1610 steps,
+**~3 h 47 m wall** (~8 s/step, GPU 100%, VRAM ~15.5 GB), final losses
+~0.17–0.24. Receipt: adapter + merged saved, 5 checkpoints. Same evidence set
+(`run_config`/`format_check`/`mask_check`/`receipt`) + data sha identical.
+
+**Inference (same 4090, `infer_cap4m.py` = kernel clone, BATCH_SIZE=4).**
+Symlinks: `models/…/transformers/4b/1 → /model/ModelScope/Qwen/Qwen3-4B`,
+`kg-cap4b-masked-adapter → out/4b_masked/adapter`. 200/200 done (~1 h; the
+longest-tail rows dominate wall). Predictions (canonical parse) →
+`outputs/capacity_eval/qwen3-4b-masked/predictions.jsonl`.
+
+**Casing finding (important).** ~17% of 4B rows emit schema keys in UPPERCASE
+(`"TITLE"/"TYPE"/"DESCRIPTION"`; raw examples in `raw_<id>.txt`), which the
+tolerant parser drops (salvage keys on lowercase `title`/`source` only) →
+those rows parse "failed" and land EMPTY in predictions. Offline re-parse of the
+raws with case-normalized keys (`build` script, key regex → lowercase) recovers
+them: empty 34→13 (10 remaining are genuinely unparseable output), entities
+4100→4432 (+8%), rels 2758→3126. Reference/0.6B/1.7B never emit uppercase keys.
+
+**Eval (200-sample referent, thinking judge).**
+
+| run | micro R/P/F1 | edge F1 | schema valid | halluc | empty rows |
+|---|---|---|---|---|---|
+| reference (ref200) | 0.534 / 0.723 / 0.614 | 0.086 | 0.931 | 0.142 | 5 |
+| 0.6B masked | 0.536 / 0.699 / 0.607 | 0.091 | 0.919 | 0.166 | 5 |
+| 1.7B masked | 0.590 / 0.597 / 0.594 | 0.160 | 0.844 | 0.234 | 0 |
+| 4B masked canonical | 0.595 / 0.720 / 0.651 | 0.217 | 0.941 | 0.099 | 34 |
+| **4B masked clean (case-tolerant)** | **0.664 / 0.743 / 0.701** | **0.233** | **0.953** | **0.084** | 13 |
+
+**Final curve reading.** Recall rises monotonically with size (0.536→0.590→0.664);
+in the case-tolerant (consumer-robust) reading F1 also rises to 0.701 — the
+earlier 1.7B "bigger = sloppier" impression was size-specific (1.7B over-produces,
+4B does not). 4B clean beats the reference 0.6B on every axis including schema
+(0.953 vs 0.931) and hallucination (0.084 vs 0.142). The **canonical (strict)
+numbers are the deploy-true ones** for a consumer that requires lowercase keys;
+the clean numbers quantify the ceiling once a tolerant extractor (case-insensitive
+key normalization) absorbs the casing quirk — worth an ADR if deploy adopts it.
+Cost this leg: ~4B train ~3h47 (~8 CNY) + infer ~1 h (~2 CNY) + two 200-pairing
+eval passes.
+
 ## Comments
