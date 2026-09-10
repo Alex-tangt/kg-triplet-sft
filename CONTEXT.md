@@ -67,6 +67,17 @@ with `IDENTITY_RUBRIC` (`eval/referent_pair.py`) and the passage text.
 length terciles, fixed seed) that every future candidate model is scored on, so
 the eval is comparable across models at a bounded cost (ADR-0007).
 
+**base baseline**:
+An untrained main-release Qwen3 model (same weights a training run starts from,
+not the `-base` variant) run through the same fixed-200 referent eval with the
+chat/no-think protocol — the lower bound that separates what LoRA adds from what
+the base model already extracts. Measured for Qwen3-0.6B (ADR-0009): micro entity
+R/P/F1 0.159 / 0.854 / 0.268 vs the 0.6B masked recipe's 0.536 / 0.699 / 0.607,
+so SFT adds +0.38 recall / +0.34 F1 for a −0.155 precision cost. The base
+under-extracts (~3.4x fewer entities, 925 vs 3805); its failure mode is omission,
+not invention, so its low hallucination rate (0.031) is a sparse-output artifact.
+Artifacts: `outputs/base_eval/` (RESULT.md) + `outputs/referent_eval/`.
+
 **inference line**:
 The kernel stack that produces the student `predictions.jsonl` the referent eval
 consumes. Reproduction/full stack: `finetune/kaggle/README_inference.md`
@@ -146,6 +157,16 @@ excluded before normalization (a blank-title `normalize('')`→`none` bug inflat
 dup on placeholder-heavy outputs; fixed). Raw-output redundancy and invalid-item
 checks (volume, empty/no-letter titles, OOV types, dangling/dup/self edges) are
 a separate API-free diagnostic: `eval/referent_redundancy.py`.
+
+**consumer-impact e2e (BYOG)**:
+Terminal validation that the extraction format feeds a real MS GraphRAG graph-QA
+consumer: run ms-graphrag's Bring-Your-Own-Graph mode (supply
+entities/relationships/text_units parquet, skip its LLM extraction) and measure
+how extraction quality transmits to answer quality. Three graphs on one topical
+slice of the fixed-200 sample (gold as control, 0.6B-masked and 4B-clean as
+treatments) share hand-authored Local/Global questions; verdicts are per-question
+hit/partial/miss. Relationship `strength` (0-10) doubles as the Leiden edge
+`weight`. See ADR-0009; artifacts under `outputs/graphrag_e2e/`.
 
 ## Task & Data
 

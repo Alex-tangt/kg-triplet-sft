@@ -12,10 +12,16 @@ self-contained push dir per size under finetune/kaggle/:
 `--protocol plain` appends a `p` to dir/kernel tags (e.g. kernel_cap06p /
 kg-tracer-cap06p) so a plain-protocol A/B does not clobber the chat run.
 
+`--no-adapter` writes the base-baseline kernel (`kernel_capbase/`, 0.6B base
+model, NO LoRA merge — ADR-0009): a single self-contained push dir whose only
+difference from the masked kernels is that no adapter is loaded, so the
+base-vs-masked delta isolates the SFT contribution.
+
 Usage:
     python finetune/kaggle/kernel_capinfer/make_capinfer.py                    # chat, full
     python finetune/kaggle/kernel_capinfer/make_capinfer.py --limit 6          # smoke
     python finetune/kaggle/kernel_capinfer/make_capinfer.py --protocol plain --only 06
+    python finetune/kaggle/kernel_capinfer/make_capinfer.py --no-adapter       # base baseline
 """
 
 from __future__ import annotations
@@ -37,7 +43,8 @@ SIZES = [
 
 def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
           protocol: str, early_stop: bool, adapter_dataset: str | None,
-          suffix: str, adapter_root: bool, batch: int) -> None:
+          suffix: str, adapter_root: bool, batch: int,
+          no_adapter: bool = False) -> None:
     src = (HERE / "cap_infer.py").read_text(encoding="utf-8")
     inputs = INPUTS_PATH.read_text(encoding="utf-8")
 
@@ -63,8 +70,15 @@ def build(size_tag: str, adapter: str, model_slug: str, limit: int | None,
     if limit is not None:
         merged = merged.replace("LIMIT = None", f"LIMIT = {limit}")
 
-    tag = size_tag + ("p" if protocol == "plain" else "")
-    tag = tag + ("s" if early_stop else "") + suffix
+    if no_adapter:
+        if size_tag != "06":
+            raise ValueError("--no-adapter currently only supports the 0.6B "
+                             "base baseline (--only 06)")
+        merged = merged.replace("NO_ADAPTER = False", "NO_ADAPTER = True")
+        tag = "base"
+    else:
+        tag = size_tag + ("p" if protocol == "plain" else "")
+        tag = tag + ("s" if early_stop else "") + suffix
     out = KAGLE / f"kernel_cap{tag}"
     out.mkdir(parents=True, exist_ok=True)
     code_name = f"kg_tracer_cap{tag}.py"
@@ -116,7 +130,21 @@ def main(argv=None) -> int:
                          "e.g. 12 on a single 4090 vs 4 on T4")
     ap.add_argument("--suffix", default="",
                     help="extra tag suffix so a variant run does not clobber an existing dir")
+    ap.add_argument("--no-adapter", action="store_true",
+                    help="base-baseline kernel: 0.6B base model, NO LoRA merge "
+                         "(ADR-0009); writes kernel_capbase/ (chat protocol, "
+                         "T4 batch). Incompatible with --adapter-*/--suffix.")
     args = ap.parse_args(argv)
+    if args.no_adapter:
+        if args.only not in (None, "06"):
+            ap.error("--no-adapter currently only supports --only 06")
+        if args.adapter_dataset or args.adapter_name or args.adapter_root or args.suffix:
+            ap.error("--adapter-dataset/--adapter-name/--adapter-root/--suffix "
+                     "are incompatible with --no-adapter")
+        slug = next(s[2] for s in SIZES if s[0] == "06")
+        build("06", "", slug, args.limit, "chat", args.early_stop, None, "",
+              False, args.batch, no_adapter=True)
+        return 0
     for tag, adapter, slug in SIZES:
         if args.only and tag != args.only:
             continue
