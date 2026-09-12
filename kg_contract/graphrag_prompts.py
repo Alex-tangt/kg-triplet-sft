@@ -11,7 +11,8 @@ missed (loop), and if so to emit them (continue), until it answers N.
 
 This is the teacher instruction for Phase-0 piloting: train data produced in
 GraphRAG's native format (open relation descriptions + strength) slots directly
-into an MS GraphRAG index, which is the consumer.
+into the consumer's graph index (LightRAG custom KG, ``insert_custom_kg``; the
+consumer was MS GraphRAG until the 2026-09-11 pivot — see ADR-0009 Leg B).
 """
 
 GRAPH_EXTRACTION_PROMPT = """\

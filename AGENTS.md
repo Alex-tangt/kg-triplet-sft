@@ -32,7 +32,7 @@ docs/       Reports: 2026-09-07-capacity-line-repair.md (root cause + 4090 train
 
 > **Data-generation pivot (owner-approved 2026-09) — governs where the bullets below
 > conflict.** The student's task changed from mohar07's typed 20-relation triplets to open
-> GraphRAG-style extraction for an MS GraphRAG graph-QA consumer: labels are produced by the
+> GraphRAG-style extraction for a LightRAG graph-RAG QA consumer: labels are produced by the
 > official GraphRAG extraction prompt (entities/relationships + strength 0-10, ADR-0003); the
 > student prompt is DERIVED from that prompt, deployment is our own JSON extraction API, and
 > the teacher/student prompts are deliberately distinct (ADR-0004); training `cutoff_len` is

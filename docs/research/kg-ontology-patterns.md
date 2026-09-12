@@ -3,6 +3,11 @@
 Phase-1 调研文档：决定本项目（kg-triplet-sft）数据生成改用哪种关系模型。
 决策链：产品形态 → 消费者 → 必须回答的查询 → schema → 数据 → 评估。
 
+> 2026-09-11 追记：消费端已从 MS GraphRAG 换成 **LightRAG**（ADR-0009 Leg B，
+> `docs/diary/2026-09-11-consumer-pivot-graphrag-to-lightrag.md`）。本文的 schema
+> 结论不变——LightRAG 同样消费"实体 + 关系描述"，但下文出现的 "MS GraphRAG 索引"
+> 请按 LightRAG custom KG 理解；产品名以 ADR 为准。
+
 ## TL;DR（决策摘要）
 
 - **产品形态**：可部署的抽取模型/API，产出被一个 **MS GraphRAG 图增强问答系统**消费。

@@ -4,7 +4,8 @@ Status: Accepted (2026-09-03). Refines ADR-0003's "target prompt" paragraph.
 
 ## Context
 
-The consumer is an MS GraphRAG graph-QA system over general text; data labels
+The consumer is a LightRAG graph-RAG QA system over general text (pivoted from
+MS GraphRAG 2026-09-11, ADR-0009 Leg B); data labels
 are produced by the official GraphRAG extraction prompt (`kg_contract/
 graphrag_prompts.py`). Open question: should the teacher prompt and the
 fine-tuned student's prompt be unified into one text? An earlier hand-written
@@ -15,9 +16,9 @@ convention; descriptions measured median ~92 chars single-sentence).
 ## Decision
 
 1. **Deployment is our own JSON extraction API** (Reality 1, not a drop-in
-   swap inside stock GraphRAG's build loop): a caller sends `STUDENT_PROMPT` +
-   passage text, the model returns the JSON `{entities, relationships}` which
-   we feed into the GraphRAG index.
+   swap inside stock LightRAG's build loop): a caller sends `STUDENT_PROMPT` +
+   passage text, the model returns the JSON `{entities, relationships}` which we
+   feed into the LightRAG index (its custom-KG entry point, `insert_custom_kg`).
 2. **The teacher stays on the official prompt** and is deliberately **not**
    unified with the student prompt. The official prompt is the quality anchor:
    label richness and the eval reference (`outputs/tracer/teacher_ref.jsonl`)

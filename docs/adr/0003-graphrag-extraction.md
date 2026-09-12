@@ -1,7 +1,11 @@
 # Data generation diverges from mohar07 reproduction: GraphRAG-style open extraction
 
-We fine-tune an extractor whose output is consumed by an **MS GraphRAG graph-QA
-system** over general text (English Wikipedia 60% + arXiv 40%). The original
+We fine-tune an extractor whose output is consumed by a **LightRAG graph-RAG QA
+system** over general text (English Wikipedia 60% + arXiv 40%). (Consumer pivoted
+from MS GraphRAG to LightRAG 2026-09-11 — see ADR-0009 Leg B and
+`docs/diary/2026-09-11-consumer-pivot-graphrag-to-lightrag.md`; the general term
+"GraphRAG-style extraction" below is retained, and the official Microsoft GraphRAG
+extraction prompt remains the teacher.) The original
 reproduction pipeline labels every fact with one of mohar07's **20 typed
 relations**; that schema drops every quantity/attribute fact (measured: numeric
 preservation 0/10 passages vs 7/10) and cannot express much of what our corpus

@@ -7,8 +7,8 @@ end-to-end project. The reproduction target is `mohar07/qwen3-0.6b-kg-triplets`.
 ## Main line: GraphRAG-style extraction (ADR-0003 / ADR-0004)
 
 The data-generation line pivoted (owner-approved 2026-09) from the typed 20-relation
-reproduction to **open GraphRAG-style extraction** whose output feeds an MS GraphRAG
-graph-QA consumer. Terms below are the current working vocabulary; the `## Task & Data`
+reproduction to **open GraphRAG-style extraction** whose output feeds a LightRAG
+graph-RAG QA consumer. Terms below are the current working vocabulary; the `## Task & Data`
 section further down describes the reproduction line (kept as a validation gate).
 
 **label**:
@@ -158,15 +158,22 @@ dup on placeholder-heavy outputs; fixed). Raw-output redundancy and invalid-item
 checks (volume, empty/no-letter titles, OOV types, dangling/dup/self edges) are
 a separate API-free diagnostic: `eval/referent_redundancy.py`.
 
-**consumer-impact e2e (BYOG)**:
-Terminal validation that the extraction format feeds a real MS GraphRAG graph-QA
-consumer: run ms-graphrag's Bring-Your-Own-Graph mode (supply
-entities/relationships/text_units parquet, skip its LLM extraction) and measure
-how extraction quality transmits to answer quality. Three graphs on one topical
-slice of the fixed-200 sample (gold as control, 0.6B-masked and 4B-clean as
-treatments) share hand-authored Local/Global questions; verdicts are per-question
-hit/partial/miss. Relationship `strength` (0-10) doubles as the Leiden edge
-`weight`. See ADR-0009; artifacts under `outputs/graphrag_e2e/`.
+**consumer-impact e2e (LightRAG custom KG)**:
+Terminal validation that the extraction format feeds a real graph-RAG QA
+consumer: run LightRAG's custom-KG write path (`insert_custom_kg` — supply
+chunks + entities + relationships, so its own extractor never runs) and measure
+how extraction quality transmits to retrieval/answer quality. Three graphs on one
+topical ~22-passage slice of the fixed-200 sample (gold as control, 0.6B-masked
+and 4B-clean as treatments) share pre-registered questions; the funnel is T0
+graph-formation (offline hard gate) → T1 retrieval (`only_need_context`) → T2
+answer (grounding + entailment), with `naive` mode as the extraction-independent
+text-sufficiency oracle. Relationship `strength` (0-10) maps to edge `weight`
+(`1.0 + mean(strength)/10`). See ADR-0009 Leg B; artifacts under
+`outputs/lightrag_e2e/`. **Outcome (2026-09-11): T0 differentiates strongly
+(0.6B graph shatters, largest component 26 vs 4B 72 vs gold 136) but T1 and T2
+saturate — `naive` already recalls every answer element and T2 is 0.94-1.0 for
+all three layers — so transmission is structural, not consumer-level, at this
+scale. Report: `outputs/lightrag_e2e/RESULT.md`.**
 
 ## Task & Data
 

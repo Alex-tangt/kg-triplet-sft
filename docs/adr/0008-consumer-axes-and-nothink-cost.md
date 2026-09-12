@@ -4,8 +4,8 @@ Two follow-ups to ADR-0007 were settled on the reference model.
 
 ## Consumer-side axes (ADR-0007's open line, GraphRAG consumer)
 
-**Reachability (retrieval simulation, local MiniLM, no API).** MS GraphRAG routes a
-query to entities by embedding against indexed entity descriptions; we approximate
+**Reachability (retrieval simulation, local MiniLM, no API).** LightRAG (like the
+MS GraphRAG consumer it replaced, ADR-0009) routes a query to entities by embedding against indexed entity descriptions; we approximate
 "can the user reach a found entity" by querying each gold (teacher) description
 against a deduped index of ALL student entity descriptions and asking whether the
 referent-matched student node is in the top-k. A planted fixture (correct vs

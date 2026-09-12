@@ -1,0 +1,7 @@
+# LightRAG consumer-impact e2e (ADR-0009 Leg B)
+# Install:  pip install -r requirements-lightrag.txt
+# The graph consumer is pinned; insert_custom_kg semantics were verified against
+# this exact version by `python eval/lightrag_e2e.py --fixture`.
+lightrag-hku==1.5.7
+# Local models (already in the HF cache): BAAI/bge-m3 (embeddings, 1024-d),
+# BAAI/bge-reranker-v2-m3 (rerank arm). Provided by sentence-transformers/torch.
