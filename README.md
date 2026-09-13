@@ -1,16 +1,17 @@
 # kg-triplet-sft
 
+**English** | [中文](README.zh-CN.md)
+
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+![tests 126](https://img.shields.io/badge/tests-126%20passing-brightgreen.svg)
+
 Qwen3 knowledge-graph extraction: data construction → LoRA SFT → referent-level
 evaluation → graph-RAG consumer validation. LoRA fine-tuning of Qwen3
 (0.6B / 1.7B / 4B) to extract `{entities, relationships}` from open text in the
 [Microsoft GraphRAG](https://github.com/microsoft/graphrag) knowledge-model
 format, plus a referent-level evaluation harness and a
 [LightRAG](https://github.com/HKUDS/LightRAG) consumer-impact study.
-
-**中文摘要**:本项目从复现一个开源 Qwen3-0.6B 知识图谱抽取管线出发,实测其封闭
-20 关系 schema 的结构性缺陷(数值类事实丢失、约 74% 真实语义关系无法表达)后,按
-"消费者 = 图谱问答"重建为 GraphRAG 式开放抽取;自建 3349 段标注语料,用 LoRA
-微调 0.6B/1.7B/4B,自建参照级评测,并做了消费端(LightRAG)端到端验证。
 
 ## Results at a glance
 
@@ -26,20 +27,37 @@ format, plus a referent-level evaluation harness and a
 
 ## Pipeline
 
+```mermaid
+graph LR
+  A[Wikipedia / arXiv<br/>100-300 word chunks] --> B[dedup + filter]
+  B --> C[teacher labels<br/>official GraphRAG prompt]
+  C --> D[LoRA SFT<br/>Qwen3 0.6B / 1.7B / 4B]
+  D --> E[referent eval<br/>fixed 200 + LLM judge]
+  E --> F[LightRAG consumer e2e<br/>T0 / T1 / T2]
+  style A fill:#e3f2fd,stroke:#1565c0
+  style C fill:#e8f5e9,stroke:#2e7d32
+  style D fill:#fff3e0,stroke:#e65100
+  style E fill:#f3e5f5,stroke:#6a1b9a
+  style F fill:#fce4ec,stroke:#ad1457
 ```
-         dataset/                     kg_contract/            finetune/                 eval/                       outputs/
-Wikipedia/arXiv ──► chunk ──► filter ──► teacher labels ──► Alpaca ──► LoRA SFT ──► referent eval ──► LightRAG e2e
- (100–300 w,          (dedup,       (official GraphRAG      (Qwen3 0.6/1.7/4B,   (two-tier match,   (custom-KG,
-  sentence bounds)     quota)        prompt, qwen3-flash)    masked recipe)        fixed 200)         T0/T1/T2)
-```
+
+## Example extraction
+
+One fixed-200 passage across the teacher (gold) and the four models — entity-F1
+climbs 0.47 → 0.63 → 0.69 → **0.89** as size grows:
+
+![Example extraction graph](docs/figures/graph_example.svg)
+
+Full passage, per-model table, and how the example was chosen:
+**[docs/example-graph.md](docs/example-graph.md)** (English + 中文, one page).
 
 ## Repository map
 
 - `dataset/` — corpus → chunk → dedup/filter → teacher labeling → Alpaca. CLIs with outputs under `dataset/data/`.
 - `kg_contract/` — prompts and contract (`graphrag_prompts.py` = official GraphRAG prompt; `student_prompt.py` = the derived student prompt), validator, relations.
 - `finetune/` — LLaMA-Factory yaml configs, the canonical masked recipe (`compshare/train_unsloth.py`), and the Kaggle kernels (train / infer, incl. `kernel_capinfer/` generator).
-- `eval/` — referent-level eval (`referent_*.py`), consumer axes, and the LightRAG consumer-impact e2e (`lightrag_*.py`). Start at `eval/README.md`.
-- `docs/` — ADRs (0001–0009), reports, the consumer-pivot diary, research notes, and `docs/evidence/` (curated evidence digests).
+- `eval/` — referent-level eval (`referent_*.py`), consumer axes, the LightRAG consumer-impact e2e (`lightrag_*.py`), and the example-graph renderer (`make_example_graph.py`). Start at `eval/README.md`.
+- `docs/` — ADRs (0001–0009), reports, the consumer-pivot diary, research notes, `docs/evidence/` (curated digests), and `docs/example-graph.md`.
 - `.scratch/kg-triplet-round1/` — spec and issues (run logs and receipts).
 
 ## Reproduction
@@ -56,6 +74,7 @@ python dataset/filter.py                 # → corpus.jsonl (dedup, quota, sente
 # teacher labeling + split + Alpaca: see dataset/batch_infer.md and dataset/graphrag_batch.py
 python finetune/compshare/train_unsloth.py --mask --merge ...   # canonical masked recipe (one 4090)
 # referent eval / consumer e2e: see eval/README.md and eval/lightrag_e2e.py
+# example graph (needs local outputs/): python eval/make_example_graph.py
 ```
 
 Every data-stage script runs end-to-end on tiny fixtures; `pytest` (126 tests)
@@ -72,12 +91,14 @@ covers the data contract, prompts, and eval glue.
   the scale (the graph is not load-bearing when raw text already answers).
 - ~17% of 4B outputs use UPPERCASE schema keys; strict parsing drops those rows
   (deploy needs a case-tolerant parser).
+- The example in `docs/example-graph.md` is **one illustrative passage**, not an
+  aggregate result.
 - `serve/` (export/GGUF/Gradio) is **not implemented**.
 
 ## Decisions & evidence
 
-Decisions live in `docs/adr/` (see also `docs/diary/` and
-`docs/research/`); curated evidence in `docs/evidence/`.
+Decisions live in `docs/adr/` (see also `docs/diary/` and `docs/research/`);
+curated evidence in `docs/evidence/`.
 
 ## License & attribution
 

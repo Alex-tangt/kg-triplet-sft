@@ -1,0 +1,39 @@
+{
+ "id": "arxiv-01717",
+ "source": "arxiv",
+ "selection": {
+  "criterion": "max 4B entity_f1 (tie-break: recall(4B)-recall(base)); all models 3-15 entities",
+  "recall_gain_4b_minus_base": 0.6154
+ },
+ "gold": {
+  "entities": 13,
+  "relationships": 10
+ },
+ "models": {
+  "base": {
+   "label": "Qwen3-0.6B base (untrained)",
+   "entities": 4,
+   "relationships": 3,
+   "entity_f1": 0.4706
+  },
+  "0.6b": {
+   "label": "Qwen3-0.6B masked",
+   "entities": 6,
+   "relationships": 2,
+   "entity_f1": 0.6316
+  },
+  "1.7b": {
+   "label": "Qwen3-1.7B masked",
+   "entities": 16,
+   "relationships": 11,
+   "entity_f1": 0.6897
+  },
+  "4b": {
+   "label": "Qwen3-4B masked (clean)",
+   "entities": 14,
+   "relationships": 7,
+   "entity_f1": 0.8889
+  }
+ },
+ "passage_text": "we approximate the solution of some linear systems of sdes driven by a fractional brownian motion with hurst parameter in the wick it sense , including a geometric fractional brownian motion . to this end , we apply a donsker - type approximation of the fractional brownian motion by disturbed binary random walks due to sottinen . moreover , we replace the rather complicated wick products by their discrete counterpart , acting on the binary variables , in the corresponding systems of wick difference equations . as the solutions of the sdes admit series representations in terms of wick powers , a key to the proof of our euler scheme is an approximation of the hermite recursion formula for the wick powers of ."
+}
