@@ -10,7 +10,8 @@ ticket 11 gold audit.
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** done (teacher machinery + DashScope batch client + semantic validation
++ human-review report shipped; see ADR-0003, `dataset/teacher.py`, `kg_contract/`).
 
 - [ ] Teacher prompt five sections complete; empty-array rule lives inside exhaustiveness
       demand; output JSON schema stated

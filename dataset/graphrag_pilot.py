@@ -4,7 +4,8 @@ Runs the official GRAPH_EXTRACTION_PROMPT (+ continuation loop) via
 qwen3-flash on 10 passages, alongside the current 20-set teacher, so a blind
 judge can compare the two on faithfulness / completeness (incl. numeric facts)
 / noise. Decides whether data generation should switch to GraphRAG-style output
-(open relation descriptions + strength) for the MS GraphRAG consumer.
+(open relation descriptions + strength) for the graph-RAG consumer (LightRAG
+since the 2026-09-11 pivot; MS GraphRAG before that).
 
 Usage:
     python dataset/graphrag_pilot.py                 # run both teachers

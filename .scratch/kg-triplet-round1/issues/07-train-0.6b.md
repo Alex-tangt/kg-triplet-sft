@@ -8,7 +8,8 @@ and the 500/1300/2575 ablation.
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent (after the ticket-06 benches + quality verdict)
+**Status:** done (full-scale 0.6B LLaMA-Factory run on the 2575-row GraphRAG set;
+this is the reproduction-line "reference 0.6B" — see ADR-0006 and `eval/README.md`).
 
 - [ ] Full run per the chosen canonical pipeline (from ticket-06 benches; see
       `finetune/README_full.md` for the data-side inputs): upload

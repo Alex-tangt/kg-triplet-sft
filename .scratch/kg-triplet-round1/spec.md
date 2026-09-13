@@ -1,4 +1,7 @@
-Status: ready-for-agent
+Status: superseded (2026-09-12) — the faithful-reproduction line was replaced by the
+open GraphRAG-style line (ADR-0003/0004). The Round-1 review gate in this spec was
+never run and the composite acceptance line is the reproduction line's own record.
+See the "Round-1 status" update in `AGENTS.md` and `docs/audit-2026-09-12.md`.
 
 # Spec: KG-Triplet SFT — Round 1 (faithful reproduction + capacity/data attribution)
 

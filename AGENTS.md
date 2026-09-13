@@ -5,7 +5,7 @@ Guidance for AI coding agents working in this repository. Read this before makin
 ## What this project is
 
 Reproduction + extension of the Qwen3-0.6B knowledge-graph triplet extraction pipeline:
-data construction → LoRA SFT → evaluation → deployment. Reproduction target:
+data construction → LoRA SFT → evaluation → consumer validation. Reproduction target:
 `mohar07/qwen3-0.6b-kg-triplets` (composite 0.6583, entity_f1 0.179 on its 700-entry test set).
 
 Domain vocabulary lives in `CONTEXT.md`. Read it before naming anything.
@@ -14,18 +14,20 @@ Domain vocabulary lives in `CONTEXT.md`. Read it before naming anything.
 
 ```
 dataset/    Phase 1: corpus → cleaning → teacher labeling → validation → splits → Alpaca
-finetune/   Phase 2: LLaMA-Factory yaml configs (0.6B / 1.5B / 3B + data ablation) + dataset card.
-            Capacity line: finetune/compshare/train_unsloth.py (canonical masked
-            recipe, one CompShare RTX 4090). Inference kernels/runbooks:
-            finetune/kaggle/README_inference.md (reproduction inferfull stack),
-            finetune/kaggle/kernel_capinfer/README.md (capacity line),
-            throughput study docs/inference-optimization-brief.md
-eval/       Phase 3: TWO lines — reproduction = vendored HGR harness (zero-change) under
-            eval/harness/ + eval/tracer_eval.py; open GraphRAG line = referent-level pipeline
-            eval/referent_*.py. Start at eval/README.md.
-serve/      Phase 4: LLaMA-Factory export (merge + GGUF), Ollama Modelfile, Gradio demo
-docs/adr/   Decisions (0001–0008; eval decisions in 0007/0008)
-docs/       Reports: 2026-09-07-capacity-line-repair.md (root cause + 4090 train/infer guidance)
+finetune/   Phase 2: LLaMA-Factory configs (qwen3_0.6b_graphrag_{full,tracer}.yaml) and the
+            canonical masked recipe (finetune/compshare/train_unsloth.py, one RTX 4090).
+            Kaggle train/infer kernels + runbooks: finetune/kaggle/README_inference.md,
+            kernel_capinfer/README.md; throughput study docs/inference-optimization-brief.md.
+            Capacity sizes are 0.6B/1.7B/4B; the data-scale ablation (issue 09) is deferred;
+            no dataset card yet.
+eval/       Phase 3: TWO lines — reproduction = vendored HGR harness (eval/harness/) +
+            eval/tracer_eval.py; open GraphRAG line = referent-level pipeline (eval/referent_*.py)
+            plus the LightRAG consumer-impact e2e (eval/lightrag_*.py). Start at eval/README.md.
+serve/      Phase 4: NOT IMPLEMENTED — empty dir; export/GGUF/Ollama/Gradio pending (issue 12 open).
+docs/adr/   Decisions (0001–0009; eval decisions in 0007/0008/0009).
+docs/       Reports + diary + research + evidence/. Key: 2026-09-07-capacity-line-repair.md
+            (root cause + 4090 guidance), diary/2026-09-11-consumer-pivot-graphrag-to-lightrag.md,
+            evidence/README.md (curated tables), audit-2026-09-12.md.
 ```
 
 ## Locked decisions (from the grilling session — do not silently reverse)
@@ -123,6 +125,15 @@ inferred, and referent-evaluated — predictions/reports under
 Open/optional items (not Round-1 blockers): HF adapter push, a deploy ADR on
 case-tolerant parsing, and the Round-1 review gate; issue-09 ablation and the 8B
 pass line stay Round-2.
+
+**Update 2026-09-12.** Two evidence legs landed after the closeout: a base
+Qwen3-0.6B baseline (SFT adds **+0.34 micro-F1**; `docs/evidence/base-baseline.md`)
+and a LightRAG consumer-impact e2e that pivoted the consumer from MS GraphRAG to
+LightRAG (`docs/diary/2026-09-11-consumer-pivot-graphrag-to-lightrag.md`,
+`docs/evidence/consumer-e2e-lightrag.md`). The consumer-level e2e is a **null** at
+its 22-passage scale (T1/T2 saturate); only T0 structural transmission is
+claimable. The **Round-1 review gate is still NOT run** and the reproduction
+line's composite was never reproduced. Repo audit: `docs/audit-2026-09-12.md`.
 
 ## Conventions
 

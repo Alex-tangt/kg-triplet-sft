@@ -7,7 +7,9 @@ shape, plus the base-model contrast (schema gain, ~6x hallucination-rate drop).
 
 **Blocked by:** 07, 08, 09
 
-**Status:** ready-for-agent
+**Status:** superseded (the reproduction-line harness comparison was dropped when
+the project pivoted to the open line; an open-line full-699 referent eval was
+delivered instead — see `eval/README.md`, ADR-0002/0007).
 
 - [ ] A predictions file exists for the base model and every adapter
 - [ ] Default-config harness reports generated for all models

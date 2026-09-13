@@ -2,8 +2,8 @@
 
 Parses the ``("entity"<|>...)`` / ``("relationship"<|>...)`` records that the
 official GraphRAG extraction prompt (``kg_contract/graphrag_prompts.py``)
-produces into a canonical structure that maps 1:1 onto the MS GraphRAG graph
-schema — entities {title, type, description} and relationships
+produces into a canonical structure that maps 1:1 onto the GraphRAG
+knowledge-model schema (MS GraphRAG / LightRAG) — entities {title, type, description} and relationships
 {source, target, description, strength(=rank)}.
 
 The parser is deliberately robust to the teacher's structural sloppiness:

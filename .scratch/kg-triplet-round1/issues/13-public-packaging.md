@@ -7,7 +7,8 @@ attribution summary and demo links, and the GitHub repo made public.
 
 **Blocked by:** 05, 10, 12
 
-**Status:** ready-for-agent
+**Status:** in progress (GitHub repo public + root README/LICENSE/evidence added
+2026-09-12; HF dataset/adapters + model cards pending).
 
 - [ ] Dataset public and linkable
 - [ ] Every adapter public with a model card linking the evaluation report

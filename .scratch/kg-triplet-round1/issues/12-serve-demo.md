@@ -6,7 +6,7 @@ pyvis node graph; 0.6B default, 3B selectable; fully offline.
 
 **Blocked by:** 07, 08
 
-**Status:** ready-for-agent
+**Status:** open (not started; `serve/` is empty).
 
 - [ ] Both models served by Ollama locally and respond to a triplet-extraction request
 - [ ] Gradio app renders triplet list and pyvis graph from a pasted passage

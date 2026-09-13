@@ -6,8 +6,8 @@ tracer set.
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent (owner approved agent execution via Kaggle CLI;
-stack decision deferred to benches per ADR-0005)
+**Status:** done (Kaggle tracer train/infer kernels shipped under
+`finetune/kaggle/kernel*`; stack verdict ADR-0005).
 
 ## Current state (2026-09-03)
 

@@ -8,7 +8,9 @@ This report is the Round 2 gate input.
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** open (partial: capacity curve + base baseline + consumer axes delivered
+via ADR-0006/0008/0009; the three-config threshold sweep, gold audit and data-scale
+ablation were not run).
 
 - [ ] Sweep numbers produced for exactly three configurations
 - [ ] Gold audit completed: stratification by source / polarity / difficulty / relation coverage,

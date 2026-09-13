@@ -1,7 +1,8 @@
 """Consumer-side reachability axis: embedding retrieval simulation.
 
-MS GraphRAG routes a user query to entities by embedding the query against the
-indexed entity *descriptions*. This module approximates "is a gold entity
+The graph-RAG consumer (LightRAG; MS GraphRAG before the 2026-09-11 pivot)
+routes a user query to entities by embedding the query against the indexed
+entity *descriptions*. This module approximates "is a gold entity
 reachable from the student's graph" with a retrieval simulation on a local
 embedder (no API, no real queries):
 

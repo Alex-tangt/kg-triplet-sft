@@ -5,8 +5,14 @@ Score a fine-tuned extractor against the teacher gold on **referent identity**
 grounding, numeric retention, duplication, and consumer reachability. This file
 is the single entry point for running the eval and reading its results.
 
-Decisions live in `docs/adr/0007-referent-level-eval.md` and
-`docs/adr/0008-consumer-axes-and-nothink-cost.md`; vocabulary in `CONTEXT.md`.
+Decisions live in `docs/adr/0007-referent-level-eval.md`,
+`docs/adr/0008-consumer-axes-and-nothink-cost.md` and
+`docs/adr/0009-consumer-e2e-and-base-baseline.md`; vocabulary in `CONTEXT.md`.
+
+The consumer-impact end-to-end leg (LightRAG custom KG; T0 graph formation →
+T1 retrieval → T2 answers) lives in `eval/lightrag_slice.py`,
+`eval/lightrag_questions.py`, `eval/lightrag_e2e.py`; runbook and results:
+`docs/evidence/consumer-e2e-lightrag.md`.
 
 > The **reproduction line** (mohar07 typed triplets) is separate: vendored HGR
 > harness under `eval/harness/` and the older `eval/tracer_eval.py`. Do not mix.
