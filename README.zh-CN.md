@@ -16,13 +16,15 @@ Qwen3 知识图谱抽取:数据构建 → LoRA SFT → 参照级(referent)评测
 重建为 GraphRAG 式开放抽取;自建 3349 段标注语料,微调 0.6B/1.7B/4B,自建参照级评测,
 并做了消费端(LightRAG)端到端验证。
 
-## 模型
+## 模型与数据
 
 Hugging Face 上的 LoRA adapter(canonical masked 配方):
 [Qwen3-0.6B](https://huggingface.co/Alextgt/qwen3-0.6b-kg-extraction) ·
 [Qwen3-1.7B](https://huggingface.co/Alextgt/qwen3-1.7b-kg-extraction) ·
 [Qwen3-4B](https://huggingface.co/Alextgt/qwen3-4b-kg-extraction) ——
 [合集](https://huggingface.co/collections/Alextgt/kg-triplet-sft-6aa648ecebcd524f7b55a8b7)。
+数据集:[kg-triplet-graphrag](https://huggingface.co/datasets/Alextgt/kg-triplet-graphrag)
+(3,349 段标注,含 train/val/test)。
 
 ## 结果速览
 
@@ -103,4 +105,4 @@ python finetune/compshare/train_unsloth.py --mask --merge ...   # canonical mask
 
 ## 许可与致谢
 
-MIT —— 见 [`LICENSE`](LICENSE) 与 [`THIRD_PARTY.md`](THIRD_PARTY.md)。训练数据不重新分发;LoRA adapter 已发布于 Hugging Face。
+MIT —— 见 [`LICENSE`](LICENSE) 与 [`THIRD_PARTY.md`](THIRD_PARTY.md)。数据集与 LoRA adapter 均已发布于 Hugging Face;正文文本遵循其原始许可(Wikipedia CC BY-SA / arXiv)。

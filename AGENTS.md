@@ -122,9 +122,9 @@ inferred, and referent-evaluated — predictions/reports under
 `outputs/capacity_eval/qwen3-{0.6b,1.7b,4b}-masked/` and
 `outputs/referent_eval/report_qwen3-…-masked{,-clean}.json`. Final curve reading
 + table: `docs/2026-09-07-capacity-line-repair.md` §1.4c and issue 08 Closeout.
-Open/optional items (not Round-1 blockers): HF adapters are published
-(`Alextgt/qwen3-{0.6b,1.7b,4b}-kg-extraction`, collection `Alextgt/kg-triplet-sft`),
-a deploy ADR on
+Open/optional items (not Round-1 blockers): HF adapters + dataset are published
+(`Alextgt/qwen3-{0.6b,1.7b,4b}-kg-extraction`, `Alextgt/kg-triplet-graphrag`,
+collection `Alextgt/kg-triplet-sft`), a deploy ADR on
 case-tolerant parsing, and the Round-1 review gate; issue-09 ablation and the 8B
 pass line stay Round-2.
 
