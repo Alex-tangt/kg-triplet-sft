@@ -13,6 +13,14 @@ evaluation → graph-RAG consumer validation. LoRA fine-tuning of Qwen3
 format, plus a referent-level evaluation harness and a
 [LightRAG](https://github.com/HKUDS/LightRAG) consumer-impact study.
 
+## Models
+
+LoRA adapters on Hugging Face (canonical masked recipe):
+[Qwen3-0.6B](https://huggingface.co/Alextgt/qwen3-0.6b-kg-extraction) ·
+[Qwen3-1.7B](https://huggingface.co/Alextgt/qwen3-1.7b-kg-extraction) ·
+[Qwen3-4B](https://huggingface.co/Alextgt/qwen3-4b-kg-extraction) —
+[collection](https://huggingface.co/collections/Alextgt/kg-triplet-sft-6aa648ecebcd524f7b55a8b7).
+
 ## Results at a glance
 
 | Stage | Result |
@@ -102,5 +110,5 @@ curated evidence in `docs/evidence/`.
 
 ## License & attribution
 
-MIT — see [`LICENSE`](LICENSE) and [`THIRD_PARTY.md`](THIRD_PARTY.md). Data and
-model weights are not redistributed.
+MIT — see [`LICENSE`](LICENSE) and [`THIRD_PARTY.md`](THIRD_PARTY.md). Training
+data is not redistributed; the LoRA adapters are published on Hugging Face.

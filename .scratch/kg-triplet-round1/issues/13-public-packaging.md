@@ -7,10 +7,10 @@ attribution summary and demo links, and the GitHub repo made public.
 
 **Blocked by:** 05, 10, 12
 
-**Status:** in progress (GitHub repo public + root README/LICENSE/evidence added
-2026-09-12; HF dataset/adapters + model cards pending).
+**Status:** in progress (GitHub repo public + bilingual README/LICENSE/evidence added;
+adapters published to HF with model cards 2026-09-13; dataset pending).
 
 - [ ] Dataset public and linkable
-- [ ] Every adapter public with a model card linking the evaluation report
-- [ ] README contains pipeline diagram, Round 1 metrics, attribution summary, demo links
-- [ ] GitHub repo public with the full history
+- [x] Every adapter public with a model card linking the evaluation report
+- [x] README contains pipeline diagram, Round 1 metrics, attribution summary, demo links
+- [x] GitHub repo public with the full history
