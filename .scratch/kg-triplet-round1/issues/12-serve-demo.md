@@ -6,7 +6,9 @@ pyvis node graph; 0.6B default, 3B selectable; fully offline.
 
 **Blocked by:** 07, 08
 
-**Status:** open (not started; `serve/` is empty).
+**Status:** deferred (owner 2026-09-13: no local demo this cycle; public
+presentation is covered by the GitHub README + HF model/dataset cards, so `serve/`
+stays empty).
 
 - [ ] Both models served by Ollama locally and respond to a triplet-extraction request
 - [ ] Gradio app renders triplet list and pyvis graph from a pasted passage

@@ -125,8 +125,9 @@ inferred, and referent-evaluated — predictions/reports under
 Open/optional items (not Round-1 blockers): HF adapters + dataset are published
 (`Alextgt/qwen3-{0.6b,1.7b,4b}-kg-extraction`, `Alextgt/kg-triplet-graphrag`,
 collection `Alextgt/kg-triplet-sft`), a deploy ADR on
-case-tolerant parsing, and the Round-1 review gate; issue-09 ablation and the 8B
-pass line stay Round-2.
+case-tolerant parsing, and the Round-1 review gate. Issues 09 (data-scale ablation),
+11 (reproduction-line attribution), and 12 (serve/demo) are **deferred**; the 8B
+pass line stays Round-2.
 
 **Update 2026-09-12.** Two evidence legs landed after the closeout: a base
 Qwen3-0.6B baseline (SFT adds **+0.34 micro-F1**; `docs/evidence/base-baseline.md`)

@@ -8,9 +8,11 @@ This report is the Round 2 gate input.
 
 **Blocked by:** 10
 
-**Status:** open (partial: capacity curve + base baseline + consumer axes delivered
-via ADR-0006/0008/0009; the three-config threshold sweep, gold audit and data-scale
-ablation were not run).
+**Status:** deferred (owner 2026-09-13). The reproduction-line parts (three-config
+threshold sweep, gold audit, data-scale ablation) were dropped with the pivot;
+their open-line counterparts — capacity curve, base baseline, and consumer axes —
+are delivered via ADR-0006/0008/0009. The remaining boxes are reproduction-line and
+out of scope for this cycle.
 
 - [ ] Sweep numbers produced for exactly three configurations
 - [ ] Gold audit completed: stratification by source / polarity / difficulty / relation coverage,
