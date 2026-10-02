@@ -127,6 +127,19 @@ quality (ADR-0008).
   passages; macro = mean of per-passage. Edge recall uses teacher-side matched
   edges, precision student-side; the consumer observes few teacher edges, so
   edge recall sits near a floor — read trend, not level.
+- **Edge decomposition** (2026-09: first-class summary fields, not an ad-hoc
+  re-parse). The edge metric can only score edges whose *both* endpoints were
+  referent-matched, so always report the pair together: `edge_recall_ceiling` =
+  share of teacher edges with both endpoints matched (the max recall reachable
+  given entity pairing); `edge_conditional_recall` = of those, the share the
+  student actually connected; `edge_conditional_precision` = of the student's
+  both-endpoints-matched edges, the share that hit a teacher edge;
+  `edge_student_endpoint_match_rate` = share of all student edges whose endpoints
+  both matched. `summary.edge_attribution` splits `1 - edge_recall` **exactly**
+  into `loss_from_entity_pairing` and `loss_from_edge_generation`, and
+  `totals.*_edges_per_entity` gives teacher/student edge density. Read relation
+  capability off `edge_conditional_recall` (0.14 at 0.6B → 0.35 at 4B), NOT
+  `edge_recall` (0.06 / 0.20), which is dominated by entity pairing.
 - **Schema**: type ∈ 5 vocab, non-empty description, strength in 0–10, endpoints
   resolve inside the student entity list. `placeholder_titles` counts blank / `-`.
 - **Grounding / hallucination**: lexical two-anchor (substring or ≥0.6 token

@@ -5,6 +5,10 @@ and pooled across passages:
 
   entity finding      recall / precision / F1   (teacher vs student nodes)
   edge finding        recall / precision / F1   (relationships, referent endpoints)
+                      plus a decomposition of the edge-recall loss into the share
+                      lost to entity pairing (edge_recall_ceiling) vs the share
+                      lost to edge generation given matched endpoints
+                      (edge_conditional_recall); see summary.edge_attribution
   schema compliance   student items valid (type vocab, non-empty, strength in 0-10,
                       endpoints resolve inside the student's own entity list)
   grounding           student extras not grounded in the passage text -> hallucination
@@ -100,6 +104,15 @@ def passage_metrics(teacher: dict, student: dict, pairs: list[list[int]]) -> dic
         1 for si, sj in se_edge if si is not None and sj is not None
         and any(ti in s2t.get(si, set()) and tj in s2t.get(sj, set()) for ti, tj in te_edge if ti is not None and tj is not None)
     )
+    # decomposition: edges whose BOTH endpoints are referent-matched. Only these
+    # can ever be scored, so they bound edge recall (teacher side) and are the
+    # meaningful denominator for edge precision (student side).
+    edge_eligible_teacher = sum(
+        1 for ti, tj in te_edge if ti is not None and tj is not None and ti in t2s and tj in t2s
+    )
+    edge_eligible_student = sum(
+        1 for si, sj in se_edge if si is not None and sj is not None and si in s2t and sj in s2t
+    )
 
     # schema (student side)
     items_total = len(se) + len(sr)
@@ -164,6 +177,8 @@ def passage_metrics(teacher: dict, student: dict, pairs: list[list[int]]) -> dic
         "n_student_rels": len(sr),
         "edge_tp_t": edge_tp_t,
         "edge_tp_s": edge_tp_s,
+        "edge_eligible_teacher": edge_eligible_teacher,
+        "edge_eligible_student": edge_eligible_student,
         "edge_recall": round(edge_tp_t / len(tr), 4) if tr else 1.0,
         "edge_precision": round(edge_tp_s / len(sr), 4) if sr else 0.0,
         "schema_items": items_total,
@@ -197,6 +212,32 @@ def _f1c(tp: int, p_den: int, r_den: int) -> float:
 
 def _macro(rows: list[dict], key: str) -> float:
     return round(_mean([r[key] for r in rows]), 4)
+
+
+def _macro_ratio(rows: list[dict], num_key: str, den_key: str) -> float:
+    """Mean of per-passage ratios, skipping passages whose denominator is 0."""
+    vals = [r[num_key] / r[den_key] for r in rows if r[den_key]]
+    return round(_mean(vals), 4) if vals else 0.0
+
+
+def _edge_attribution(tp: int, t_rel: int, elig: int) -> dict:
+    """Exact split of the edge-recall shortfall.
+
+    ``edge_recall = ceiling * conditional_recall`` where ``ceiling`` is the share
+    of teacher edges whose both endpoints were referent-matched and
+    ``conditional_recall`` is the share of those the student actually connected.
+    So ``1 - edge_recall`` decomposes exactly into the entity-pairing loss and
+    the edge-generation loss (the two terms sum to ``loss_total``).
+    """
+    ceiling = _safe(elig, t_rel)
+    cond_recall = _safe(tp, elig)
+    recall = _safe(tp, t_rel)
+    return {
+        "recall": round(recall, 4),
+        "loss_total": round(1 - recall, 4),
+        "loss_from_entity_pairing": round(1 - ceiling, 4),
+        "loss_from_edge_generation": round(ceiling * (1 - cond_recall), 4),
+    }
 
 
 def bootstrap_table(rows: list[dict], ns=(50, 100, 150, 200, 300), reps=3000, seed=7) -> dict:
@@ -257,6 +298,8 @@ def main(argv=None) -> int:
     s_rel = sum(r["n_student_rels"] for r in rows)
     edge_tp_t = sum(r["edge_tp_t"] for r in rows)
     edge_tp_s = sum(r["edge_tp_s"] for r in rows)
+    edge_elig_t = sum(r["edge_eligible_teacher"] for r in rows)
+    edge_elig_s = sum(r["edge_eligible_student"] for r in rows)
     schema_items = sum(r["schema_items"] for r in rows)
     schema_valid = sum(r["schema_valid"] for r in rows)
     hard_hall = sum(r["ungrounded"] for r in rows)
@@ -272,6 +315,9 @@ def main(argv=None) -> int:
             "entity_f1": _macro(rows, "entity_f1"),
             "edge_recall": _macro(rows, "edge_recall"),
             "edge_precision": _macro(rows, "edge_precision"),
+            "edge_recall_ceiling": _macro_ratio(rows, "edge_eligible_teacher", "n_teacher_rels"),
+            "edge_conditional_recall": _macro_ratio(rows, "edge_tp_t", "edge_eligible_teacher"),
+            "edge_conditional_precision": _macro_ratio(rows, "edge_tp_s", "edge_eligible_student"),
         },
         "micro": {
             "entity_recall": round(_safe(ent_tp, t_ent), 4),
@@ -280,6 +326,10 @@ def main(argv=None) -> int:
             "edge_recall": round(_safe(edge_tp_t, t_rel), 4),
             "edge_precision": round(_safe(edge_tp_s, s_rel), 4),
             "edge_f1": round(_f1(_safe(edge_tp_s, s_rel), _safe(edge_tp_t, t_rel)), 4),
+            "edge_recall_ceiling": round(_safe(edge_elig_t, t_rel), 4),
+            "edge_conditional_recall": round(_safe(edge_tp_t, edge_elig_t), 4),
+            "edge_conditional_precision": round(_safe(edge_tp_s, edge_elig_s), 4),
+            "edge_student_endpoint_match_rate": round(_safe(edge_elig_s, s_rel), 4),
         },
         "totals": {
             "teacher_entities": t_ent,
@@ -288,7 +338,12 @@ def main(argv=None) -> int:
             "student_rels": s_rel,
             "edge_tp_teacher_side": edge_tp_t,
             "edge_tp_student_side": edge_tp_s,
+            "edge_eligible_teacher": edge_elig_t,
+            "edge_eligible_student": edge_elig_s,
+            "teacher_edges_per_entity": round(_safe(t_rel, t_ent), 4),
+            "student_edges_per_entity": round(_safe(s_rel, s_ent), 4),
         },
+        "edge_attribution": _edge_attribution(edge_tp_t, t_rel, edge_elig_t),
         "schema": {
             "valid_fraction": round(_safe(schema_valid, schema_items), 4),
             "items": schema_items,
