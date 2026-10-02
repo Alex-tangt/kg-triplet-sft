@@ -1,0 +1,21 @@
+{
+  "id": "idalextan/kg-l1-loss",
+  "title": "kg-l1-loss",
+  "code_file": "l1_loss.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "idalextan/l1-masked-adapter",
+    "idalextan/trace-full-dataset"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": [
+    "qwen-lm/qwen-3/transformers/0.6b/1"
+  ]
+}

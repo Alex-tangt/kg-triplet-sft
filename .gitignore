@@ -13,3 +13,5 @@ models/
 kaggle.json
 .env
 .DS_Store
+# personal resume/application material — must not be public
+docs/project-brief.md

@@ -168,7 +168,7 @@ line's composite was never reproduced. Repo audit: `docs/audit-2026-09-12.md`.
 
 ### Issue tracker
 
-Issues and specs live as markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+Issues and specs live as GitHub issues on `Alex-tangt/kg-triplet-sft`. `.scratch/` is the pre-migration archive. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

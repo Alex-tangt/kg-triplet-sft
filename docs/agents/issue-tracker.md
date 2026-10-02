@@ -1,30 +1,20 @@
-# Issue tracker: Local Markdown
+# Issue tracker: GitHub
 
-Issues and specs (you may know a spec as a PRD) for this repo live as markdown files in `.scratch/`.
+Issues and specs for this repo live as **GitHub issues** on the public repo
+`Alex-tangt/kg-triplet-sft`.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The spec is `.scratch/<feature-slug>/spec.md`
-- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- One feature/effort per issue; use labels for state (see `triage-labels.md`).
+- A spec is an issue whose body carries the PRD (problem, solution, decisions,
+  out of scope); link the concrete docs under `docs/` from it.
+- Sub-tasks are separate issues referencing the parent (`Part of #N` / a task list).
+- Long-lived design decisions still become ADRs under `docs/adr/`; the issue links
+  the ADR rather than duplicating it.
+- Run evidence is a digest under `docs/evidence/`; raw artifacts stay in
+  `outputs/` (gitignored) and are referenced by path + run card.
 
-## When a skill says "publish to the issue tracker"
+## History
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
-
-## When a skill says "fetch the relevant ticket"
-
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
-
-## Wayfinding operations
-
-Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
-
-- **Map**: `.scratch/<effort>/map.md` — the Notes / Decisions-so-far / Fog body.
-- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
-- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
-- **Claim**: set `Status: claimed` and save before any work.
-- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+`.scratch/` holds the pre-migration local-markdown tracker (Round 1 and the first
+audit issues). It is kept as an archive and is **no longer the source of truth**.
